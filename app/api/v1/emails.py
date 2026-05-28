@@ -1,0 +1,30 @@
+"""Email API routes."""
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.common.schemas import Role
+from app.db.database import get_session
+from app.models.auth import Accountant
+from app.schemas.emails import EmailRead
+from app.services.auth import require_role
+from app.services.emails import read_client_emails
+
+router = APIRouter(prefix="/emails", tags=["emails"])
+
+
+@router.get(
+    "/clients/{client_id}",
+    response_model=list[EmailRead],
+    summary="List recent client emails",
+    description="Lists recent stored emails for an authorized client.",
+)
+async def get_client_emails(
+    client_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    session: AsyncSession = Depends(get_session),
+) -> list[EmailRead]:
+    """List client emails."""
+    return await read_client_emails(
+        session, current_user=current_user, client_id=client_id, limit=limit
+    )

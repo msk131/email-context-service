@@ -1,0 +1,16 @@
+FROM python:3.12-slim AS test
+
+WORKDIR /app
+
+COPY requirements.txt requirements-test.txt ./
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt -r requirements-test.txt
+
+COPY . .
+
+ENV DATABASE_URL=sqlite+aiosqlite:///:memory:
+ENV JWT_SECRET_KEY=test-secret-key
+ENV ENCRYPTION_KEY_HEX=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+ENV GEMINI_API_KEY=""
+
+RUN pytest -q
