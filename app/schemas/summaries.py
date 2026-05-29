@@ -1,8 +1,9 @@
 """Summaries domain validation schemas (Pydantic layer)."""
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class SummaryQuery(BaseModel):
@@ -36,7 +37,7 @@ class SummaryResponse(BaseModel):
 
 class SummaryRefreshTaskResponse(BaseModel):
     """Accepted background summary refresh task."""
-    task_id: int = Field(..., examples=[42])
+    task_id: UUID = Field(..., examples=["4c6155a5-7f5c-4a7d-93fa-41b01dbf4952"])
     status: str = Field(..., examples=["pending"])
 
 
@@ -70,8 +71,8 @@ class EmailSearchMatch(BaseModel):
     client_name: str = Field(..., examples=["Akshar Patel"])
     sender_email: str = Field(..., examples=["akshar@example.com"])
     recipients: List[str] = Field(default_factory=list, examples=[["sara@example.org"]])
-    subject: str = Field(..., examples=["1099-INT follow-up"])
-    snippet: str = Field(..., examples=["The 1099-INT from First Bank is still missing..."])
+    subject: str = Field(..., max_length=512, examples=["1099-INT follow-up"])
+    snippet: str = Field(..., max_length=500, examples=["The 1099-INT from First Bank is still missing..."])
     sent_at: datetime
     relevance_score: int = Field(..., ge=1, examples=[3])
 
@@ -80,7 +81,7 @@ class EmailSearchMatch(BaseModel):
 
 class EmailSearchResponse(BaseModel):
     """Natural language email search response."""
-    query: str = Field(..., min_length=2, examples=["clients missing 1099-INT"])
+    query: str = Field(..., min_length=2, max_length=256, examples=["clients missing 1099-INT"])
     total: int = Field(..., ge=0, examples=[4])
     results: List[EmailSearchMatch] = Field(default_factory=list)
 
@@ -90,15 +91,24 @@ class ConversationRequest(BaseModel):
     question: str = Field(
         ...,
         min_length=3,
+        max_length=1000,
         examples=["What is still blocking Akshar's tax return?"],
     )
 
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("question")
+    @classmethod
+    def normalize_question(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if len(normalized) < 3:
+            raise ValueError("question must contain at least 3 non-whitespace characters")
+        return normalized
+
 
 class ConversationResponse(BaseModel):
     """Conversational answer grounded in matched emails."""
-    question: str = Field(..., examples=["What is still blocking Akshar's tax return?"])
+    question: str = Field(..., max_length=1000, examples=["What is still blocking Akshar's tax return?"])
     answer: str = Field(..., examples=["The main blocker is the missing 1099-INT."])
     source_email_count: int = Field(..., ge=0, examples=[3])
     sources: List[EmailSearchMatch] = Field(default_factory=list)

@@ -1,5 +1,6 @@
 """Task application services."""
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,7 +72,7 @@ async def get_task_status_service(
     session: AsyncSession,
     *,
     current_user: Accountant,
-    task_id: int,
+    task_id: UUID,
 ) -> TaskStatusResponse | None:
     """Return task status after checking payload-scoped access."""
     task = await task_repo.get_task(session, task_id)

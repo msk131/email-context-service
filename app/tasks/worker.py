@@ -1,6 +1,7 @@
 import asyncio
 import traceback
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,7 +57,7 @@ def _parse_datetime(value):
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
 
-async def process_task_by_id(task_id: int, request_id: str | None = None):
+async def process_task_by_id(task_id: UUID, request_id: str | None = None):
     token = request_id_ctx_var.set(request_id) if request_id else None
     try:
         async with async_session() as session:

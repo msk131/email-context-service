@@ -3,6 +3,7 @@
 import pytest
 import pytest_asyncio
 from datetime import timedelta
+from uuid import UUID
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,7 @@ class TestTaskTTLAndCleanup:
         task = await task_repo.create_task(session, "summarize_client", {"client_id": 1})
         
         assert task.id is not None
+        assert isinstance(task.id, UUID)
         assert task.task_type == "summarize_client"
         assert task.status == TaskStatus.pending
         assert task.payload == {"client_id": 1}

@@ -6,7 +6,11 @@ import app.services.conversation as conversation_service
 import app.services.summary_refresh as summary_refresh
 import app.services.summaries as summaries
 from app.common.schemas import Role
-from app.schemas.summaries import ConversationRequest, ConversationResponse
+from app.schemas.summaries import (
+    ConversationRequest,
+    ConversationResponse,
+    EmailSearchMatch,
+)
 
 
 class DummySummary:
@@ -43,7 +47,7 @@ async def test_maybe_refresh_summary_refreshes_after_five_new_emails(monkeypatch
     async def fake_get_summary_record(session, client_id):
         return DummySummary(datetime(2026, 1, 1))
 
-    async def fake_count_new_emails(session, client_id, after):
+    async def fake_count_newly_captured_emails(session, client_id, after):
         return 5
 
     called = []
@@ -53,7 +57,11 @@ async def test_maybe_refresh_summary_refreshes_after_five_new_emails(monkeypatch
         return "ok"
 
     monkeypatch.setattr(summary_refresh, "get_summary_record", fake_get_summary_record)
-    monkeypatch.setattr(summary_refresh, "count_new_emails", fake_count_new_emails)
+    monkeypatch.setattr(
+        summary_refresh,
+        "count_newly_captured_emails",
+        fake_count_newly_captured_emails,
+    )
     monkeypatch.setattr(summary_refresh, "refresh_client_summary", fake_refresh)
 
     await summaries.maybe_refresh_summary_for_new_email(None, 123)
@@ -66,7 +74,7 @@ async def test_maybe_refresh_summary_invalidates_cache_when_less_than_five_new_e
     async def fake_get_summary_record(session, client_id):
         return DummySummary(datetime(2026, 1, 1))
 
-    async def fake_count_new_emails(session, client_id, after):
+    async def fake_count_newly_captured_emails(session, client_id, after):
         return 3
 
     called = []
@@ -75,7 +83,11 @@ async def test_maybe_refresh_summary_invalidates_cache_when_less_than_five_new_e
         called.append(("invalidate", client_id))
 
     monkeypatch.setattr(summary_refresh, "get_summary_record", fake_get_summary_record)
-    monkeypatch.setattr(summary_refresh, "count_new_emails", fake_count_new_emails)
+    monkeypatch.setattr(
+        summary_refresh,
+        "count_newly_captured_emails",
+        fake_count_newly_captured_emails,
+    )
     monkeypatch.setattr(summary_refresh, "invalidate_summary_cache", fake_invalidate)
 
     await summaries.maybe_refresh_summary_for_new_email(None, 123)
@@ -91,9 +103,17 @@ def test_conversation_request_rejects_structured_filters():
         )
 
 
+def test_conversation_search_query_removes_question_fillers():
+    query = conversation_service._conversation_search_query(
+        "Can you summarize the latest emails about the missing form?"
+    )
+
+    assert query == "missing form"
+
+
 @pytest.mark.asyncio
 async def test_conversation_extracts_filters_from_question(monkeypatch):
-    captured = {}
+    calls = []
 
     async def fake_infer_client_id(session, *, current_user, question):
         return 42
@@ -108,7 +128,7 @@ async def test_conversation_extracts_filters_from_question(monkeypatch):
         end_date=None,
         limit=25,
     ):
-        captured.update(
+        calls.append(
             {
                 "query": query,
                 "client_id": client_id,
@@ -133,8 +153,71 @@ async def test_conversation_extracts_filters_from_question(monkeypatch):
     )
 
     assert isinstance(response, ConversationResponse)
-    assert captured["client_id"] == 42
-    assert captured["limit"] == 3
-    assert captured["end_date"] is not None
-    assert captured["start_date"] is not None
-    assert captured["end_date"] - captured["start_date"] >= timedelta(days=6, hours=23)
+    assert calls[0]["query"] == "akshar"
+    assert calls[0]["client_id"] == 42
+    assert calls[0]["limit"] == 3
+    assert calls[0]["end_date"] is not None
+    assert calls[0]["start_date"] is not None
+    assert calls[0]["end_date"] - calls[0]["start_date"] >= timedelta(days=6, hours=23)
+
+
+@pytest.mark.asyncio
+async def test_conversation_retries_without_inferred_filters(monkeypatch):
+    calls = []
+
+    async def fake_infer_client_id(session, *, current_user, question):
+        return 42
+
+    async def fake_search_email_context(
+        session,
+        *,
+        current_user,
+        query,
+        client_id=None,
+        start_date=None,
+        end_date=None,
+        limit=25,
+    ):
+        calls.append(
+            {
+                "query": query,
+                "client_id": client_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "limit": limit,
+            }
+        )
+        if len(calls) == 1:
+            return type("SearchResponse", (), {"results": []})()
+        source = EmailSearchMatch(
+            id=1,
+            client_id=42,
+            client_name="Akshar",
+            sender_email="akshar@example.com",
+            recipients=["cpa@example.com"],
+            subject="Missing form",
+            snippet="Please send the missing form.",
+            sent_at=datetime(2026, 5, 1, 12, 0),
+            relevance_score=2,
+        )
+        return type("SearchResponse", (), {"results": [source]})()
+
+    monkeypatch.setattr(
+        conversation_service,
+        "_infer_conversation_client_id",
+        fake_infer_client_id,
+    )
+    monkeypatch.setattr(conversation_service, "search_email_context", fake_search_email_context)
+
+    response = await summaries.answer_email_context_question(
+        None,
+        current_user=DummyUser(),
+        question="For Akshar, what about the missing form today?",
+    )
+
+    assert response.source_email_count == 1
+    assert calls[0]["client_id"] == 42
+    assert calls[0]["start_date"] is not None
+    assert calls[1]["client_id"] is None
+    assert calls[1]["start_date"] is None
+    assert calls[1]["query"] == "akshar missing form"

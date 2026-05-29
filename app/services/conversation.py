@@ -12,6 +12,65 @@ from app.models.clients import Client
 from app.schemas.summaries import ConversationResponse
 from app.services.email_search import search_email_context
 
+_STOPWORDS = {
+    "a",
+    "about",
+    "all",
+    "an",
+    "and",
+    "any",
+    "are",
+    "as",
+    "ask",
+    "can",
+    "context",
+    "conversation",
+    "day",
+    "days",
+    "did",
+    "do",
+    "does",
+    "email",
+    "emails",
+    "find",
+    "for",
+    "from",
+    "give",
+    "i",
+    "in",
+    "is",
+    "latest",
+    "last",
+    "me",
+    "message",
+    "messages",
+    "month",
+    "months",
+    "of",
+    "on",
+    "please",
+    "recent",
+    "show",
+    "summarize",
+    "summary",
+    "tell",
+    "the",
+    "to",
+    "today",
+    "was",
+    "week",
+    "weeks",
+    "were",
+    "what",
+    "when",
+    "where",
+    "who",
+    "why",
+    "with",
+    "yesterday",
+    "you",
+}
+
 
 def _day_bounds(value: datetime) -> tuple[datetime, datetime]:
     day = value.date()
@@ -73,6 +132,20 @@ def _extract_conversation_limit(question: str) -> int:
     if not match:
         return 10
     return max(1, min(int(match.group(1)), 50))
+
+
+def _conversation_search_query(question: str) -> str:
+    """Extract useful search keywords from a natural-language question."""
+    tokens = [
+        token.strip(".,?!:;()[]{}\"'")
+        for token in re.findall(r"[a-zA-Z0-9@._+-]+", question.lower())
+    ]
+    meaningful = [
+        token
+        for token in tokens
+        if len(token) >= 2 and not token.isdigit() and token not in _STOPWORDS
+    ]
+    return " ".join(meaningful) if meaningful else question.strip()
 
 
 async def _infer_conversation_client_id(
@@ -143,16 +216,25 @@ async def answer_email_context_question(
     )
     start_date, end_date = _extract_conversation_date_range(question)
     limit = _extract_conversation_limit(question)
+    search_query = _conversation_search_query(question)
 
     search_response = await search_email_context(
         session,
         current_user=current_user,
-        query=question,
+        query=search_query,
         client_id=client_id,
         start_date=start_date,
         end_date=end_date,
         limit=limit,
     )
+    if not search_response.results and (client_id is not None or start_date or end_date):
+        search_response = await search_email_context(
+            session,
+            current_user=current_user,
+            query=search_query,
+            limit=limit,
+        )
+
     if not search_response.results:
         return ConversationResponse(
             question=question,

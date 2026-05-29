@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.models import EmailDirection
 from app.common.schemas import Role
+from app.common.time import utc_now
 from app.core.logging_config import get_logger
 from app.models.auth import Accountant
 from app.models.summaries import Email
@@ -199,6 +200,7 @@ async def mock_send_email(
         is_read=bool(message.isRead),
         direction=EmailDirection.outbound,
         sent_at=message.sentDateTime or message.receivedDateTime or message.createdDateTime,
+        captured_at=utc_now(),
     )
     session.add(email)
     task = await _enqueue_summary_refresh(session, client.id, email.sent_at)
@@ -254,6 +256,7 @@ async def mock_receive_email(
         is_read=bool(request.isRead),
         direction=EmailDirection.inbound,
         sent_at=received_at,
+        captured_at=utc_now(),
     )
     session.add(email)
     task = await _enqueue_summary_refresh(session, client.id, email.sent_at)

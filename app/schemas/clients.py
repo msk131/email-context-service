@@ -10,7 +10,7 @@ class ClientCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     external_email: EmailStr
-    firm_id: int | None = None
+    firm_id: int | None = Field(default=None, ge=1)
 
 
 class ClientUpdate(BaseModel):
@@ -18,7 +18,7 @@ class ClientUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     external_email: EmailStr | None = None
-    firm_id: int | None = None
+    firm_id: int | None = Field(default=None, ge=1)
 
 
 class ClientRead(BaseModel):

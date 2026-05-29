@@ -4,7 +4,7 @@ This backend is a modular monolith for the Ascend Email Context case study. It i
 
 ## Business Workflow
 
-1. A firm, users, and clients are created through setup/demo endpoints.
+1. A firm, users, and clients are created through auth and client endpoints.
 2. Mock email rows simulate Microsoft Graph ingestion.
 3. Mock email ingestion enqueues a non-forced `summarize_client` task; manual refresh can enqueue the same task with `force=true`.
 4. The worker loads authorized emails, normalizes the optional date range, and applies the partial refresh rule.
@@ -33,7 +33,8 @@ app/
   api/
     health.py             Health check
     v1/
-      setup.py            Bootstrap accounts, login, mock email ingestion
+      auth.py             Bootstrap accounts and login
+      mock_emails.py      Mock email ingestion
       clients.py          Client CRUD
       firms.py            Firm CRUD
       emails.py           Client email reads
@@ -56,12 +57,12 @@ app/
 
 ## API Boundaries
 
-Setup/demo endpoints:
+Auth and demo endpoints:
 
-- `POST /api/v1/setup/register`
-- `POST /api/v1/setup/token`
-- `POST /api/v1/setup/mock-emails/send`
-- `POST /api/v1/setup/mock-emails/receive`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/token`
+- `POST /api/v1/mock-emails/send`
+- `POST /api/v1/mock-emails/receive`
 
 Product endpoints:
 
@@ -77,7 +78,7 @@ Product endpoints:
 - `POST /api/v1/tasks`
 - `GET /api/v1/tasks/{task_id}`
 
-There is no separate production `auth` router in this case-study implementation. Login lives under `setup` with bootstrap and mock ingestion because those endpoints support the demo environment.
+Authentication and mock email ingestion are split into separate routers so auth and demo email capture remain separate concerns.
 
 ## Data Model
 

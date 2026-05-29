@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from app.common.schemas import Role
 from app.db.database import get_session
@@ -72,7 +73,7 @@ async def enqueue_task(
 @limiter.limit(TASK_STATUS_LIMIT)
 async def task_status(
     request: Request,
-    task_id: int,
+    task_id: UUID = Path(...),
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> TaskStatusResponse:

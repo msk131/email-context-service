@@ -17,6 +17,7 @@ from app.repositories.summaries import (
     get_summary_record,
     get_emails,
     count_new_emails,
+    count_newly_captured_emails,
     load_client,
 )
 
@@ -29,5 +30,6 @@ __all__ = [
     "get_summary_record",
     "get_emails",
     "count_new_emails",
+    "count_newly_captured_emails",
     "load_client",
 ]

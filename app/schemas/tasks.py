@@ -1,6 +1,7 @@
 """Task API validation schemas."""
 from datetime import datetime
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -21,13 +22,13 @@ class TaskCreateRequest(BaseModel):
 
 class TaskCreateResponse(BaseModel):
     """Accepted task response."""
-    task_id: int
+    task_id: UUID
     status: str
 
 
 class TaskStatusResponse(BaseModel):
     """Background task status response."""
-    task_id: int
+    task_id: UUID
     task_type: str
     status: str
     result: dict[str, Any] | None = None

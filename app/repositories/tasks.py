@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy import and_, select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +22,7 @@ async def create_task(session: AsyncSession, task_type: str, payload: dict) -> B
     return task
 
 
-async def get_task(session: AsyncSession, task_id: int) -> Optional[BackgroundTask]:
+async def get_task(session: AsyncSession, task_id: UUID) -> Optional[BackgroundTask]:
     q = select(BackgroundTask).where(BackgroundTask.id == task_id)
     res = await session.execute(q)
     return res.scalars().first()
@@ -33,12 +34,12 @@ async def fetch_pending(session: AsyncSession, limit: int = 10):
     return res.scalars().all()
 
 
-async def mark_running(session: AsyncSession, task_id: int):
+async def mark_running(session: AsyncSession, task_id: UUID):
     await session.execute(update(BackgroundTask).where(BackgroundTask.id == task_id).values(status=TaskStatus.running, updated_at=utc_now()))
     await session.flush()
 
 
-async def claim_pending_task(session: AsyncSession, task_id: int) -> Optional[BackgroundTask]:
+async def claim_pending_task(session: AsyncSession, task_id: UUID) -> Optional[BackgroundTask]:
     """Atomically move a pending task to running and return it when claimed."""
     result = await session.execute(
         update(BackgroundTask)
@@ -54,7 +55,7 @@ async def claim_pending_task(session: AsyncSession, task_id: int) -> Optional[Ba
     return await get_task(session, task_id)
 
 
-async def mark_succeeded(session: AsyncSession, task_id: int, result: dict):
+async def mark_succeeded(session: AsyncSession, task_id: UUID, result: dict):
     now = utc_now()
     expires_at = now + TASK_TTL_SUCCEEDED
     await session.execute(update(BackgroundTask).where(BackgroundTask.id == task_id).values(
@@ -67,7 +68,7 @@ async def mark_succeeded(session: AsyncSession, task_id: int, result: dict):
     await session.flush()
 
 
-async def mark_failed(session: AsyncSession, task_id: int, error: str):
+async def mark_failed(session: AsyncSession, task_id: UUID, error: str):
     now = utc_now()
     expires_at = now + TASK_TTL_FAILED
     await session.execute(update(BackgroundTask).where(BackgroundTask.id == task_id).values(

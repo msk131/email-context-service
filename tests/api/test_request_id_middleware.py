@@ -49,7 +49,7 @@ def test_error_response_includes_error_id():
     
     # Make request that will fail validation
     response = client.post(
-        "/api/v1/setup/mock-emails/send",
+        "/api/v1/mock-emails/send",
         json={"invalid": "payload"},
         headers={"Authorization": "Bearer token"}
     )
@@ -76,7 +76,7 @@ def test_error_response_preserves_custom_request_id():
     custom_id = str(uuid.uuid4())
 
     response = client.post(
-        "/api/v1/setup/mock-emails/send",
+        "/api/v1/mock-emails/send",
         json={"invalid": "payload"},
         headers={"Authorization": "Bearer token", "X-Request-ID": custom_id},
     )

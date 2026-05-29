@@ -1,8 +1,10 @@
 """Alembic migration environment."""
+import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.common.models import Base
 from app.core.setting import settings
@@ -11,13 +13,7 @@ from app.core.setting import settings
 from app.models import auth, clients, firms, summaries, tasks  # noqa: F401
 
 config = context.config
-
-
-def _sync_database_url(url: str) -> str:
-    return url.replace("+asyncpg", "").replace("+aiosqlite", "")
-
-
-config.set_main_option("sqlalchemy.url", _sync_database_url(settings.database_url))
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -38,19 +34,31 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    """Run migrations with a live database connection."""
-    connectable = engine_from_config(
+def do_run_migrations(connection) -> None:
+    """Run migrations on an established connection."""
+    context.configure(connection=connection, target_metadata=target_metadata)
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -> None:
+    """Run migrations with an async database connection."""
+    connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
 
-        with context.begin_transaction():
-            context.run_migrations()
+    await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    """Run migrations with a live database connection."""
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

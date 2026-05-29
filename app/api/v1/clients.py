@@ -5,7 +5,7 @@ Calls: services.clients for business logic
 Uses: models.clients (ORM), schemas.clients (validation)
 """
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_session
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/clients", tags=["clients"])
     },
 )
 async def list_clients(
-    firm_id: int | None = Query(default=None),
+    firm_id: int | None = Query(default=None, ge=1),
     current_user: Accountant = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
@@ -92,7 +92,7 @@ async def create_client(
     },
 )
 async def get_client(
-    client_id: int,
+    client_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
@@ -120,8 +120,8 @@ async def get_client(
     },
 )
 async def update_client(
-    client_id: int,
     request: ClientUpdate,
+    client_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
@@ -150,7 +150,7 @@ async def update_client(
     },
 )
 async def delete_client(
-    client_id: int,
+    client_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),

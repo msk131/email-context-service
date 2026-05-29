@@ -1,6 +1,6 @@
 """Compatibility facade for summary-related services."""
 from app.services.conversation import answer_email_context_question
-from app.services.email_search import _snippet, _to_search_match, search_email_context
+from app.services.email_search import search_email_context
 from app.services.summary_cache import read_authorized_summary, read_cached_summary
 from app.services.summary_refresh import (
     maybe_refresh_summary_for_new_email,
@@ -14,8 +14,6 @@ from app.services.summary_tasks import enqueue_summary_refresh_task
 
 __all__ = [
     "answer_email_context_question",
-    "_snippet",
-    "_to_search_match",
     "enqueue_summary_refresh_task",
     "get_firm_summary_report",
     "get_global_summary_report",

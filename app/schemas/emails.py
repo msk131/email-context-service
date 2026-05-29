@@ -1,6 +1,7 @@
 """Microsoft Graph-compatible email mock schemas."""
 from datetime import datetime
 from typing import Any, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -8,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 class GraphEmailAddress(BaseModel):
     """Microsoft Graph emailAddress resource."""
     address: EmailStr = Field(..., examples=["akshar@example.org"])
-    name: Optional[str] = Field(None, examples=["Akshar Patel"])
+    name: Optional[str] = Field(None, max_length=255, examples=["Akshar Patel"])
 
     model_config = ConfigDict(extra="allow")
 
@@ -23,7 +24,7 @@ class GraphRecipient(BaseModel):
 class GraphItemBody(BaseModel):
     """Microsoft Graph itemBody resource."""
     contentType: str = Field("HTML", examples=["HTML", "Text"])
-    content: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1, max_length=100_000)
 
     model_config = ConfigDict(extra="allow")
 
@@ -37,32 +38,32 @@ class GraphMessage(BaseModel):
     and body content.
     """
     odata_type: Optional[str] = Field(None, alias="@odata.type")
-    id: Optional[str] = None
+    id: Optional[str] = Field(None, max_length=255)
     createdDateTime: Optional[datetime] = None
     lastModifiedDateTime: Optional[datetime] = None
     receivedDateTime: Optional[datetime] = None
     sentDateTime: Optional[datetime] = None
     hasAttachments: Optional[bool] = None
-    internetMessageId: Optional[str] = None
+    internetMessageId: Optional[str] = Field(None, max_length=998)
     subject: Optional[str] = Field(None, max_length=512)
-    bodyPreview: Optional[str] = None
-    importance: Optional[str] = None
-    parentFolderId: Optional[str] = None
-    conversationId: Optional[str] = None
-    conversationIndex: Optional[str] = None
+    bodyPreview: Optional[str] = Field(None, max_length=1024)
+    importance: Optional[str] = Field(None, max_length=32)
+    parentFolderId: Optional[str] = Field(None, max_length=255)
+    conversationId: Optional[str] = Field(None, max_length=255)
+    conversationIndex: Optional[str] = Field(None, max_length=2048)
     isDeliveryReceiptRequested: Optional[bool] = None
     isReadReceiptRequested: Optional[bool] = None
     isRead: Optional[bool] = None
     isDraft: Optional[bool] = None
-    webLink: Optional[str] = None
-    inferenceClassification: Optional[str] = None
+    webLink: Optional[str] = Field(None, max_length=2048)
+    inferenceClassification: Optional[str] = Field(None, max_length=64)
     body: GraphItemBody
     sender: Optional[GraphRecipient] = None
     from_: Optional[GraphRecipient] = Field(None, alias="from")
-    toRecipients: List[GraphRecipient] = Field(default_factory=list)
-    ccRecipients: List[GraphRecipient] = Field(default_factory=list)
-    bccRecipients: List[GraphRecipient] = Field(default_factory=list)
-    replyTo: List[GraphRecipient] = Field(default_factory=list)
+    toRecipients: List[GraphRecipient] = Field(default_factory=list, max_length=100)
+    ccRecipients: List[GraphRecipient] = Field(default_factory=list, max_length=100)
+    bccRecipients: List[GraphRecipient] = Field(default_factory=list, max_length=100)
+    replyTo: List[GraphRecipient] = Field(default_factory=list, max_length=100)
     flag: Optional[dict[str, Any]] = None
 
     model_config = ConfigDict(
@@ -206,7 +207,7 @@ class GraphMessageCollectionResponse(BaseModel):
 class EmailCaptureResponse(BaseModel):
     """Result of capturing a mock email and enqueueing summary refresh."""
     message: GraphMessage
-    summary_task_id: int
+    summary_task_id: UUID
     summary_task_status: str
 
 

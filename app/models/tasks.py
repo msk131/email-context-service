@@ -1,7 +1,8 @@
 from datetime import timedelta
 from enum import Enum
+import uuid
 
-from sqlalchemy import Column, DateTime, Enum as SAEnum, Integer, JSON, String, Text
+from sqlalchemy import Column, DateTime, Enum as SAEnum, JSON, String, Text, Uuid
 
 from app.common.time import utc_now
 from app.common.models import Base
@@ -22,7 +23,7 @@ TASK_TTL_FAILED = timedelta(days=30)  # Keep failed tasks for 30 days
 class BackgroundTask(Base):
     __tablename__ = "background_tasks"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     task_type = Column(String(64), nullable=False)
     payload = Column(JSON, nullable=False)
     status = Column(SAEnum(TaskStatus), nullable=False, default=TaskStatus.pending)

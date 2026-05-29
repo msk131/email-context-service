@@ -12,7 +12,7 @@ from app.llm import LLMService
 from app.llm.embeddings import embed_text
 from app.models.summaries import EmailSummary, SummarizationLog
 from app.repositories.summaries import (
-    count_new_emails,
+    count_newly_captured_emails,
     get_emails,
     get_summary_record,
     load_client,
@@ -59,7 +59,11 @@ async def refresh_client_summary(
 
     summary_record = await get_summary_record(session, client_id)
     if summary_record and not force:
-        new_email_count = await count_new_emails(session, client_id, summary_record.refreshed_at)
+        new_email_count = await count_newly_captured_emails(
+            session,
+            client_id,
+            summary_record.refreshed_at,
+        )
         if new_email_count < 5:
             logger.info(
                 "Summary refresh skipped client_id=%s new_email_count=%s refreshed_at=%s",
@@ -139,7 +143,11 @@ async def maybe_refresh_summary_for_new_email(session: AsyncSession, client_id: 
         await refresh_client_summary(session, client_id)
         return
 
-    new_email_count = await count_new_emails(session, client_id, summary_record.refreshed_at)
+    new_email_count = await count_newly_captured_emails(
+        session,
+        client_id,
+        summary_record.refreshed_at,
+    )
     if new_email_count >= 5:
         logger.info(
             "Refreshing summary after new emails client_id=%s new_email_count=%s",

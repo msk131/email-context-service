@@ -5,9 +5,8 @@ Calls: services.summaries for business logic
 Uses: models.summaries (ORM), schemas.summaries (validation)
 """
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query, Request, status
+from fastapi import APIRouter, Body, Depends, Path, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_session
@@ -38,7 +37,6 @@ from app.common.rate_limit import (
     REFRESH_LIMIT,
     SUMMARY_READ_LIMIT,
 )
-from app.tasks.worker import process_task_by_id
 
 router = APIRouter(prefix="/summaries", tags=["summaries"])
 
@@ -61,11 +59,11 @@ router = APIRouter(prefix="/summaries", tags=["summaries"])
 )
 @limiter.limit(SEARCH_LIMIT)
 async def search_emails(
-    request,
-    query: str = Query(..., min_length=2, description="Natural-language query or keywords."),
-    client_id: Optional[int] = Query(None, description="Limit search to one client."),
-    start_date: Optional[datetime] = Query(None, description="Only include emails sent at or after this timestamp."),
-    end_date: Optional[datetime] = Query(None, description="Only include emails sent at or before this timestamp."),
+    request: Request,
+    query: str = Query(..., min_length=2, max_length=256, description="Natural-language query or keywords."),
+    client_id: int | None = Query(None, ge=1, description="Limit search to one client."),
+    start_date: datetime | None = Query(None, description="Only include emails sent at or after this timestamp."),
+    end_date: datetime | None = Query(None, description="Only include emails sent at or before this timestamp."),
     limit: int = Query(25, ge=1, le=100, description="Maximum number of emails to return."),
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
@@ -171,8 +169,8 @@ async def global_summary_report(
 )
 @limiter.limit(SUMMARY_READ_LIMIT)
 async def read_summary(
-    request,
-    client_id: int,
+    request: Request,
+    client_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> SummaryResponse:
@@ -203,22 +201,21 @@ async def read_summary(
 @limiter.limit(REFRESH_LIMIT)
 async def refresh_summary(
     request: Request,
-    client_id: int,
-    background_tasks: BackgroundTasks,
+    client_id: int = Path(..., ge=1),
     force: bool = Query(False, description="Force refresh even if fewer than 5 new emails."),
-    start_date: Optional[datetime] = Query(
+    start_date: datetime | None = Query(
         None,
         description="Only include emails sent at or after this timestamp.",
     ),
-    end_date: Optional[datetime] = Query(
+    end_date: datetime | None = Query(
         None,
         description="Only include emails sent at or before this timestamp.",
     ),
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> SummaryRefreshTaskResponse:
-    """Enqueue summary refresh for client."""
-    response = await enqueue_summary_refresh_task(
+    """Enqueue summary refresh for an external worker to process."""
+    return await enqueue_summary_refresh_task(
         session,
         current_user=current_user,
         client_id=client_id,
@@ -226,9 +223,3 @@ async def refresh_summary(
         start_date=start_date,
         end_date=end_date,
     )
-    background_tasks.add_task(
-        process_task_by_id,
-        response.task_id,
-        getattr(request.state, "request_id", None),
-    )
-    return response

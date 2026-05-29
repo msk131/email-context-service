@@ -1,6 +1,9 @@
 """FastAPI app configuration and exception handlers setup."""
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.common.error_handlers import (
@@ -10,6 +13,7 @@ from app.common.error_handlers import (
 )
 from app.common.rate_limit import RateLimitExceeded, limiter, rate_limit_exception_handler
 from app.core.request_handlers import get_request_id
+from app.core.setting import settings
 
 # API documentation metadata
 TAGS_METADATA = [
@@ -18,7 +22,6 @@ TAGS_METADATA = [
     {"name": "emails", "description": "Client email retrieval and context operations."},
     {"name": "firms", "description": "Firm metadata and organization information."},
     {"name": "summaries", "description": "Summary generation, email search, conversational Q&A, and coverage reporting."},
-    {"name": "setup", "description": "Bootstrap user registration, authentication, and demo data generation."},
     {"name": "tasks", "description": "Background task submission and status monitoring."},
 ]
 
@@ -65,19 +68,22 @@ def setup_exception_handlers(app: FastAPI) -> None:
     """Register global exception handlers."""
     
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException):
+    async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
         """Handle HTTP exceptions with error ID and standardized error code."""
         error_id = get_request_id(request)
         return http_exception_response(request, exc, error_id)
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
         """Handle validation errors with detailed field information."""
         error_id = get_request_id(request)
         return validation_error_response(request, exc, error_id)
 
     @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception):
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """
         Global exception handler to capture unhandled errors and return the error ID.
         
@@ -95,6 +101,19 @@ def setup_middleware_and_static(app: FastAPI) -> None:
     # Apply rate limiter to app
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
+
+    if settings.trusted_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+
+    if settings.cors_allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_allowed_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+            expose_headers=["X-Request-ID"],
+        )
     
     # Mount static files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")

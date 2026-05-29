@@ -11,6 +11,7 @@ class Email(Base):
     __tablename__ = "emails"
     __table_args__ = (
         Index("ix_emails_client_sent_at", "client_id", "sent_at"),
+        Index("ix_emails_client_captured_at", "client_id", "captured_at"),
         Index("ix_emails_subject", "subject"),
         Index("ix_emails_sender_address", "sender_address"),
     )
@@ -36,6 +37,7 @@ class Email(Base):
     is_read = Column(Boolean, nullable=False, default=False)
     direction = Column(Enum(EmailDirection), nullable=False)
     sent_at = Column(DateTime(timezone=True), nullable=False)
+    captured_at = Column(DateTime(timezone=True), nullable=False)
 
     # Relationships
     client = relationship("Client", back_populates="emails")

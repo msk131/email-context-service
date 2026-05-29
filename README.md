@@ -76,10 +76,9 @@ pip install -r requirements.txt -r requirements-test.txt
 uvicorn app.main:app --reload
 ```
 
-This project is tested with Python 3.12, matching the Docker images. The core
-install avoids heavyweight ML wheels; install optional Hugging Face embeddings
-with `pip install -r requirements-embeddings.txt` when using a Python/PyTorch
-platform that supports them.
+This project is tested with Python 3.12, matching the Docker images. The install
+avoids heavyweight ML wheels; local embeddings use the deterministic fallback in
+`app/llm/embeddings.py`.
 
 API docs: http://localhost:8000/docs
 
@@ -112,7 +111,7 @@ The first user can register without a token and must be a `superuser`. After
 that, registration requires an authenticated `firm_admin` or `superuser`.
 
 ```http
-POST /api/v1/setup/register
+POST /api/v1/auth/register
 ```
 
 First user example:
@@ -157,7 +156,7 @@ Frontend behavior:
 ### 2. Login
 
 ```http
-POST /api/v1/setup/token
+POST /api/v1/auth/token
 ```
 
 Request:
@@ -278,7 +277,7 @@ must already exist in the current user's accessible firm.
 Outbound email from accountant to client:
 
 ```http
-POST /api/v1/setup/mock-emails/send
+POST /api/v1/mock-emails/send
 ```
 
 ```json
@@ -310,7 +309,7 @@ POST /api/v1/setup/mock-emails/send
 Inbound email from client:
 
 ```http
-POST /api/v1/setup/mock-emails/receive
+POST /api/v1/mock-emails/receive
 ```
 
 ```json

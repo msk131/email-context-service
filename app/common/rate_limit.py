@@ -10,16 +10,21 @@ Uses slowapi library (fork of ratelimit with FastAPI support).
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
-from app.common.error_codes import ErrorCode
 from functools import wraps
-import uuid
-from app.core.logging_config import request_id_ctx_var
+from jose import JWTError, jwt
+
+from app.common.error_codes import ErrorCode
+from app.core.request_handlers import get_request_id
+from app.core.setting import settings
 
 try:
     from slowapi import Limiter
     from slowapi.errors import RateLimitExceeded
     from slowapi.util import get_remote_address
 except ImportError:
+    if settings.is_production:
+        raise RuntimeError("slowapi must be installed when APP_ENV=production")
+
     class RateLimitExceeded(Exception):
         """Fallback exception used when slowapi is not installed."""
 
@@ -45,16 +50,30 @@ except ImportError:
 
             return decorator
 
-# Initialize rate limiter with IP address as key
-limiter = Limiter(key_func=get_remote_address)
-
-
-def get_request_id(request: Request) -> str:
-    """Extract request ID from context or request state."""
+def _auth_subject(request: Request) -> str | None:
+    """Use the bearer token subject as a stable per-user key when present."""
+    authorization = request.headers.get("Authorization") or ""
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
     try:
-        return request_id_ctx_var.get()
-    except LookupError:
-        return getattr(request.state, "request_id", str(uuid.uuid4()))
+        claims = jwt.get_unverified_claims(token)
+    except (JWTError, ValueError):
+        return None
+    subject = str(claims.get("sub") or "").strip()
+    return subject[:128] if subject else None
+
+
+def rate_limit_key(request: Request) -> str:
+    """Prefer authenticated user identity; otherwise fall back to client IP."""
+    subject = _auth_subject(request)
+    if subject:
+        return f"user:{subject}"
+    return f"ip:{get_remote_address(request)}"
+
+
+# Initialize rate limiter with a user-aware key instead of IP-only buckets.
+limiter = Limiter(key_func=rate_limit_key)
 
 
 async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:

@@ -1,12 +1,23 @@
 """Request handling utilities for middleware and request context management."""
+import re
 import uuid
-from contextvars import ContextVar
 from fastapi import Request
 from fastapi.responses import Response
 
-# This should be imported from logging_config where it's actually defined
-# For now, we'll reference it here
-request_id_ctx_var: ContextVar[str] = ContextVar("request_id", default=None)
+from app.core.logging_config import request_id_ctx_var
+from app.core.setting import settings
+
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]+$")
+
+
+def _is_valid_request_id(value: str) -> bool:
+    """Accept only log-safe, bounded request IDs."""
+    return (
+        bool(value)
+        and value != "-"
+        and len(value) <= settings.request_id_max_length
+        and _REQUEST_ID_RE.fullmatch(value) is not None
+    )
 
 
 def extract_or_generate_request_id(request: Request) -> str:
@@ -18,11 +29,9 @@ def extract_or_generate_request_id(request: Request) -> str:
     - Generates new UUID4 if not provided
     - Handles empty/whitespace-only headers gracefully
     """
-    req_id = request.headers.get("X-Request-ID")
-    if not req_id or not req_id.strip():
-        req_id = str(uuid.uuid4())
-    else:
-        req_id = req_id.strip()
+    req_id = (request.headers.get("X-Request-ID") or "").strip()
+    if not _is_valid_request_id(req_id):
+        return str(uuid.uuid4())
     return req_id
 
 
@@ -40,12 +49,12 @@ def get_request_id(request: Request) -> str:
     if request_id:
         return request_id
     
-    header_request_id = request.headers.get("X-Request-ID")
-    if header_request_id and header_request_id.strip():
-        return header_request_id.strip()
+    header_request_id = (request.headers.get("X-Request-ID") or "").strip()
+    if _is_valid_request_id(header_request_id):
+        return header_request_id
     
     context_request_id = request_id_ctx_var.get()
-    if context_request_id:
+    if _is_valid_request_id(context_request_id):
         return context_request_id
     
     return str(uuid.uuid4())

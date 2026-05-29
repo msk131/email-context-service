@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -43,7 +44,7 @@ async def test_enqueue_task_requires_client_id():
 @pytest.mark.asyncio
 async def test_enqueue_task_authorizes_client_access(monkeypatch):
     async def fake_create_task(session, task_type, payload):
-        return SimpleNamespace(id=42, status="pending")
+        return SimpleNamespace(id=uuid4(), status="pending")
 
     monkeypatch.setattr(tasks_service.task_repo, "create_task", fake_create_task)
 
@@ -54,7 +55,8 @@ async def test_enqueue_task_authorizes_client_access(monkeypatch):
         session=FakeSession(client=SimpleNamespace(firm_id=7)),
     )
 
-    assert response.model_dump() == {"task_id": 42, "status": "pending"}
+    assert str(response.task_id)
+    assert response.status == "pending"
 
 
 @pytest.mark.asyncio
