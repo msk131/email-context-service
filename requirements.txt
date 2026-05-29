@@ -11,3 +11,6 @@ httpx
 python-dotenv
 pydantic-settings
 pydantic[email]
+tenacity
+prometheus_client
+PyYAML

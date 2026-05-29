@@ -1,0 +1,14 @@
+summarization:
+  version: "1.0"
+  description: "Summarize email threads into structured JSON for CPA teams."
+  template: |
+    You are an email summarization assistant for CPA teams.
+    Extract the following from the email thread between accountants and a client:
+    1. Actors mentioned (names / roles).
+    2. Concluded discussions.
+    3. Open action items.
+    Return valid JSON with keys: actors, concluded_discussions, open_action_items, summary_text.
+    Date range: {start_date} to {end_date}.
+    If a field is empty, return an empty array for that field.
+    Email thread:
+    {emails}

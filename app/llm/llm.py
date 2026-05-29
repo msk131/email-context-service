@@ -1,18 +1,17 @@
-import asyncio
 import json
-import random
 from datetime import datetime
 from typing import Any
 
-import httpx
-
 from app.core.config import settings
+from app.llm.llm_client import LLMClient
+from app.llm.prompts import render_prompt
 
 class GeminiService:
     def __init__(self) -> None:
         self.api_key = settings.gemini_api_key
         self.model = settings.gemini_model
         self.endpoint = f"https://gemini.googleapis.com/v1/models/{self.model}:generateText"
+        self.client = LLMClient(api_key=self.api_key, model=self.model, endpoint=self.endpoint, timeout=30.0)
 
     async def summarize(self, emails: list[dict[str, Any]], start_date: datetime, end_date: datetime) -> dict[str, Any]:
         prompt = self._build_prompt(emails, start_date, end_date)
@@ -21,42 +20,25 @@ class GeminiService:
         return await self._call_gemini(prompt)
 
     def _build_prompt(self, emails: list[dict[str, Any]], start_date: datetime, end_date: datetime) -> str:
-        lines = [
-            "You are an email summarization assistant for CPA teams."
-            "Extract the following from the email thread between accountants and a client:",
-            "1. Actors mentioned (names / roles).",
-            "2. Concluded discussions.",
-            "3. Open action items.",
-            "Return valid JSON with keys: actors, concluded_discussions, open_action_items, summary_text.",
-            f"Date range: {start_date.isoformat()} to {end_date.isoformat()}.",
-            "If a field is empty, return an empty array for that field.",
-            "Email thread:\n",
-        ]
+        # Render using prompt templates (RAG prompt configuration)
+        email_lines = []
         for email in emails:
-            lines.append(f"[{email['sent_at'].isoformat()}] {email['sender_email']} -> {', '.join(email['recipients'])}")
-            lines.append(f"Subject: {email['subject']}")
-            lines.append(email['body'])
-            lines.append("\n")
-        return "\n".join(lines)
+            sent = email.get("sent_at")
+            sent_s = sent.isoformat() if hasattr(sent, "isoformat") else str(sent)
+            recipients = ", ".join(email.get("recipients") or [])
+            email_lines.append(f"[{sent_s}] {email.get('sender_email')} -> {recipients}\nSubject: {email.get('subject')}\n{email.get('body')}\n")
+        emails_text = "\n".join(email_lines)
+        return render_prompt(
+            "summarization",
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            emails=emails_text,
+        )
 
     async def _call_gemini(self, prompt: str) -> dict[str, Any]:
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload = {"prompt": {"text": prompt}, "max_output_tokens": 600, "temperature": 0.2}
-        delays = [1.0, 2.0, 4.0]
-        last_error: Exception | None = None
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            for attempt, delay in enumerate(delays + [None]):
-                try:
-                    response = await client.post(self.endpoint, headers=headers, json=payload)
-                    response.raise_for_status()
-                    data = response.json()
-                    return self._parse_response(data)
-                except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
-                    last_error = exc
-                    if attempt == len(delays):
-                        break
-                    await asyncio.sleep(delay + random.random() * 0.2)
-        raise RuntimeError("Gemini summarization failed after retries") from last_error
+        data = await self.client.generate(payload)
+        return self._parse_response(data)
 
     def _parse_response(self, data: dict[str, Any]) -> dict[str, Any]:
         text = None
