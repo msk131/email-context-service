@@ -99,7 +99,7 @@ async def search_emails(
 )
 @limiter.limit(CONVERSATION_LIMIT)
 async def conversation(
-    request,
+    request: Request,
     request_body: ConversationRequest = Body(...),
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
