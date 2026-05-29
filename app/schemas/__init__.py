@@ -4,13 +4,17 @@ All request/response validation models organized by entity.
 Same naming pattern as models/ and api/v1/:
 - schemas.auth → AuthRequest, RegisterRequest, UserRead, Token
 - schemas.clients → ClientRead
-- schemas.emails → EmailRead, MockEmailSendRequest, MockThreadRequest
+- schemas.emails → EmailRead, MockEmailSendRequest, MockEmailReceiveRequest
 - schemas.firms → FirmRead
 - schemas.summaries → SummaryQuery, SummaryResult, SummaryResponse
 """
 from app.schemas.auth import AuthRequest, RegisterRequest, UserRead, Token
 from app.schemas.clients import ClientRead
-from app.schemas.emails import EmailRead, MockEmailSendRequest, MockThreadRequest, MockThreadResponse
+from app.schemas.emails import (
+    EmailRead,
+    MockEmailReceiveRequest,
+    MockEmailSendRequest,
+)
 from app.schemas.firms import FirmRead
 from app.schemas.summaries import (
     SummaryQuery,
@@ -28,9 +32,8 @@ __all__ = [
     "Token",
     "ClientRead",
     "EmailRead",
+    "MockEmailReceiveRequest",
     "MockEmailSendRequest",
-    "MockThreadRequest",
-    "MockThreadResponse",
     "FirmRead",
     "SummaryQuery",
     "SummaryResult",

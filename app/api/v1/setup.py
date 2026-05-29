@@ -1,5 +1,5 @@
 """Setup and demo data API routes."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import UnauthorizedError
@@ -7,15 +7,19 @@ from app.common.schemas import Role
 from app.db.database import get_session
 from app.models.auth import Accountant
 from app.schemas.auth import AuthRequest, RegisterRequest, Token, UserRead
-from app.schemas.emails import EmailRead, MockEmailSendRequest, MockThreadRequest, MockThreadResponse
+from app.schemas.emails import (
+    EmailCaptureResponse,
+    MockEmailReceiveRequest,
+    MockEmailSendRequest,
+)
+from app.tasks.worker import process_task_by_id
+from app.api.dependencies.auth import get_optional_current_user, require_role
 from app.services.auth import (
     authenticate_accountant,
     create_access_token,
-    get_optional_current_user,
     register_accountant,
-    require_role,
 )
-from app.services.emails import mock_send_email, mock_send_thread
+from app.services.emails import mock_receive_email, mock_send_email
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
@@ -24,12 +28,10 @@ router = APIRouter(prefix="/setup", tags=["setup"])
     "/register",
     response_model=UserRead,
     status_code=201,
-    summary="Register a user account",
+    summary="Register a new user account",
     description=(
-        "Bootstraps the first superuser when the database has no users. After that, "
-        "registration requires a bearer token from a firm admin or superuser. Firm "
-        "admins can create users only in their own firm; superusers can create users "
-        "for an existing firm_id or a new firm_name."
+        "Creates a new user account. Bootstraps the first superuser when no users exist. "
+        "Subsequent registrations require an authenticated firm admin or superuser."
     ),
     responses={
         201: {"description": "User created"},
@@ -61,8 +63,8 @@ async def register(
 @router.post(
     "/token",
     response_model=Token,
-    summary="Login and issue a bearer token",
-    description="Authenticates a registered user by email/password and returns a JWT access token.",
+    summary="Authenticate and issue access token",
+    description="Validates a registered user's credentials and returns a JWT bearer token for API access.",
     responses={401: {"description": "Invalid email or password"}},
 )
 async def login(
@@ -84,13 +86,15 @@ async def login(
 
 
 @router.post(
-    "/mock-emails",
-    response_model=EmailRead,
+    "/mock-emails/send",
+    response_model=EmailCaptureResponse,
     status_code=201,
-    summary="Insert one mock email",
+    summary="Mock Microsoft Graph sendMail",
     description=(
-        "Creates a mock inbound or outbound email for an existing client, or creates/reuses "
-        "a client when client_name and client_email are provided."
+        "Stores an outbound email from a Microsoft Graph sendMail JSON body. "
+        "All standard Graph message fields are optional except the capture fields: "
+        "sender/from, toRecipients, one timestamp, and body.content. Mock examples "
+        "show only the required fields to keep testing payloads small."
     ),
     responses={
         401: {"description": "Missing or invalid bearer token"},
@@ -99,23 +103,33 @@ async def login(
         422: {"description": "Invalid request body"},
     },
 )
-async def create_mock_email(
+async def create_mock_sent_email(
+    http_request: Request,
     request: MockEmailSendRequest,
+    background_tasks: BackgroundTasks,
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
-) -> EmailRead:
-    """Insert one mock email."""
-    return await mock_send_email(session, current_user=current_user, request=request)
+) -> EmailCaptureResponse:
+    """Insert one outbound mock email from a Graph sendMail payload."""
+    response = await mock_send_email(session, current_user=current_user, request=request)
+    background_tasks.add_task(
+        process_task_by_id,
+        response.summary_task_id,
+        getattr(http_request.state, "request_id", None),
+    )
+    return response
 
 
 @router.post(
-    "/mock-email-threads",
-    response_model=MockThreadResponse,
+    "/mock-emails/receive",
+    response_model=EmailCaptureResponse,
     status_code=201,
-    summary="Insert a realistic mock email thread",
+    summary="Mock Microsoft Graph received message",
     description=(
-        "Creates a short CPA/client email thread that can immediately be summarized, searched, "
-        "or used in conversational Q&A."
+        "Stores an inbound email from a Microsoft Graph message JSON shape. "
+        "All standard Graph fields are optional except sender/from, at least one "
+        "recipient, one timestamp, and body.content. Mock examples show only the "
+        "required fields to keep testing payloads small."
     ),
     responses={
         401: {"description": "Missing or invalid bearer token"},
@@ -124,10 +138,22 @@ async def create_mock_email(
         422: {"description": "Invalid request body"},
     },
 )
-async def create_mock_email_thread(
-    request: MockThreadRequest,
+async def create_mock_received_email(
+    http_request: Request,
+    request: MockEmailReceiveRequest,
+    background_tasks: BackgroundTasks,
     current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
-) -> MockThreadResponse:
-    """Insert a mock email thread."""
-    return await mock_send_thread(session, current_user=current_user, request=request)
+) -> EmailCaptureResponse:
+    """Insert one inbound mock email from a Graph message payload."""
+    response = await mock_receive_email(
+        session,
+        current_user=current_user,
+        request=request,
+    )
+    background_tasks.add_task(
+        process_task_by_id,
+        response.summary_task_id,
+        getattr(http_request.state, "request_id", None),
+    )
+    return response

@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.summaries import Email, EmailSummary
@@ -51,35 +51,54 @@ async def count_new_emails(session: AsyncSession, client_id: int, after: datetim
     return int(result.scalar_one())
 
 
-async def search_accessible_emails(
+async def count_firm_summaries(session: AsyncSession, firm_id: int) -> int:
+    """Count summaries for clients in one firm."""
+    result = await session.execute(
+        select(func.count(EmailSummary.id))
+        .join(Client, EmailSummary.client_id == Client.id)
+        .where(Client.firm_id == firm_id)
+    )
+    return int(result.scalar_one())
+
+
+async def count_firm_clients(session: AsyncSession, firm_id: int) -> int:
+    """Count clients in one firm."""
+    result = await session.execute(
+        select(func.count(Client.id)).where(Client.firm_id == firm_id)
+    )
+    return int(result.scalar_one())
+
+
+async def list_summary_counts_by_firm(session: AsyncSession) -> list[tuple[int, str, int]]:
+    """List summary counts grouped by firm."""
+    from app.models.firms import Firm
+
+    result = await session.execute(
+        select(Firm.id, Firm.name, func.count(EmailSummary.id))
+        .join(Client, Client.firm_id == Firm.id)
+        .outerjoin(EmailSummary, EmailSummary.client_id == Client.id)
+        .group_by(Firm.id, Firm.name)
+    )
+    return [(firm_id, firm_name, count or 0) for firm_id, firm_name, count in result]
+
+
+async def list_accessible_email_summary_rows(
     session: AsyncSession,
     *,
-    query: str,
     role: Role,
     firm_id: int,
     client_id: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    limit: int = 25,
-) -> list[tuple[Email, Client]]:
-    """Search emails the current user can access."""
-    terms = [term.lower() for term in query.split() if len(term.strip()) > 1]
-    filters = []
-    for term in terms:
-        pattern = f"%{term}%"
-        filters.append(
-            or_(
-                func.lower(Email.subject).like(pattern),
-                func.lower(Email.body).like(pattern),
-                func.lower(Email.sender_email).like(pattern),
-                func.lower(Client.name).like(pattern),
-                func.lower(Client.external_email).like(pattern),
-            )
-        )
-
-    statement = select(Email, Client).join(Client, Email.client_id == Client.id)
-    if filters:
-        statement = statement.where(or_(*filters))
+) -> list[tuple[Email, Client, EmailSummary]]:
+    """List accessible email rows with summary embeddings for service ranking."""
+    statement = (
+        select(Email, Client, EmailSummary)
+        .join(Client, Email.client_id == Client.id)
+        .join(EmailSummary, Email.client_id == EmailSummary.client_id)
+        .where(EmailSummary.embedding.is_not(None))
+    )
+    
     if role != Role.superuser:
         statement = statement.where(Client.firm_id == firm_id)
     if client_id is not None:
@@ -89,5 +108,5 @@ async def search_accessible_emails(
     if end_date is not None:
         statement = statement.where(Email.sent_at <= end_date)
 
-    result = await session.execute(statement.order_by(Email.sent_at.desc()).limit(limit))
+    result = await session.execute(statement)
     return list(result.all())

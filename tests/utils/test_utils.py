@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.utils import decrypt_text, encrypt_text, normalize_date_range
 
@@ -26,3 +26,12 @@ def test_normalize_date_range_rejects_invalid_range():
         assert "start_date must be before end_date" in str(exc)
     else:
         raise AssertionError("Expected ValueError for invalid range")
+
+
+def test_normalize_date_range_preserves_aware_end_date():
+    end = datetime(2026, 5, 29, 8, 12, tzinfo=timezone.utc)
+
+    start, normalized_end = normalize_date_range(None, end)
+
+    assert start.tzinfo is timezone.utc
+    assert normalized_end == end

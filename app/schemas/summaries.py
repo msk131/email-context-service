@@ -34,9 +34,18 @@ class SummaryResponse(BaseModel):
     result: Optional[SummaryResult] = None
 
 
+class SummaryRefreshTaskResponse(BaseModel):
+    """Accepted background summary refresh task."""
+    task_id: int = Field(..., examples=[42])
+    status: str = Field(..., examples=["pending"])
+
+
 class ReportFirmClientCount(BaseModel):
     """Firm summary report (count of clients with summaries)."""
     client_count_with_summaries: int = Field(..., ge=0, examples=[38])
+    total_clients_in_firm: int = Field(..., ge=0, examples=[45])
+    coverage_percentage: float = Field(..., ge=0, le=100, examples=[84.4])
+    generated_at: datetime
 
 
 class ReportFirmSummaryRow(BaseModel):
@@ -49,6 +58,9 @@ class ReportFirmSummaryRow(BaseModel):
 class ReportGlobalResponse(BaseModel):
     """Global summary report (all firms)."""
     summaries_by_firm: List[ReportFirmSummaryRow] = Field(default_factory=list)
+    total_firms: int = Field(..., ge=0, examples=[12])
+    total_clients_with_summaries: int = Field(..., ge=0, examples=[156])
+    generated_at: datetime
 
 
 class EmailSearchMatch(BaseModel):
@@ -75,11 +87,13 @@ class EmailSearchResponse(BaseModel):
 
 class ConversationRequest(BaseModel):
     """Question-answer request over accessible email context."""
-    question: str = Field(..., min_length=3, examples=["What is still blocking Akshar's tax return?"])
-    client_id: Optional[int] = Field(None, examples=[101])
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    limit: int = Field(10, ge=1, le=50, examples=[10])
+    question: str = Field(
+        ...,
+        min_length=3,
+        examples=["What is still blocking Akshar's tax return?"],
+    )
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ConversationResponse(BaseModel):

@@ -34,8 +34,10 @@ def decrypt_text(ciphertext: str) -> str:
 def normalize_date_range(
     start_date: Optional[datetime], end_date: Optional[datetime]
 ) -> tuple[datetime, datetime]:
-    earliest = datetime.fromtimestamp(0)
-    now = datetime.now()
+    boundary = end_date or start_date
+    tzinfo = boundary.tzinfo if boundary and boundary.tzinfo else None
+    earliest = datetime.fromtimestamp(0, tz=tzinfo)
+    now = datetime.now(tz=tzinfo)
     if start_date is None:
         start_date = earliest
     if end_date is None:

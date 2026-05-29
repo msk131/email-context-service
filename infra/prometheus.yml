@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: email-context-api
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names:
+          - api
+        type: A
+        port: 8000

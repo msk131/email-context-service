@@ -1,51 +1,163 @@
-"""Mock email send service."""
-from datetime import datetime, timedelta
+"""Microsoft Graph-compatible mock email service."""
+from email.utils import make_msgid
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache import invalidate_summary_cache
 from app.common.models import EmailDirection
 from app.common.schemas import Role
+from app.core.logging_config import get_logger
 from app.models.auth import Accountant
-from app.models.clients import Client
 from app.models.summaries import Email
-from app.repositories.clients import get_client_by_id
-from app.repositories.emails import get_client_by_external_email, list_client_emails
-from app.schemas.emails import EmailRead, MockEmailSendRequest, MockThreadRequest, MockThreadResponse
+from app.repositories import tasks as task_repo
+from app.repositories.clients import (
+    get_client_by_firm_and_email,
+    get_client_by_id,
+    get_client_by_email,
+)
+from app.repositories.emails import list_client_emails
+from app.schemas.emails import (
+    EmailCaptureResponse,
+    EmailRead,
+    GraphRecipient,
+    MockEmailReceiveRequest,
+    MockEmailSendRequest,
+)
 from app.services.clients import authorize_client_for_user
 
+logger = get_logger("services.emails")
 
-async def resolve_mock_client(
+
+def _recipient_address(recipient: GraphRecipient) -> str:
+    return str(recipient.emailAddress.address)
+
+
+def _recipient_dump(recipient: GraphRecipient) -> dict:
+    return recipient.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+
+def _body_preview(content: str, limit: int = 255) -> str:
+    compact = " ".join(content.split())
+    return compact[:limit]
+
+
+def _message_to_email_read(email: Email) -> EmailRead:
+    sent_at = email.sent_at
+    received_at = email.sent_at if email.direction == EmailDirection.inbound else None
+    return EmailRead(
+        id=str(email.id),
+        createdDateTime=sent_at,
+        lastModifiedDateTime=sent_at,
+        receivedDateTime=received_at,
+        sentDateTime=sent_at,
+        hasAttachments=False,
+        internetMessageId=make_msgid(idstring=str(email.id)),
+        subject=email.subject,
+        bodyPreview=_body_preview(email.body_text),
+        importance="normal",
+        isRead=bool(email.is_read),
+        isDraft=False,
+        body=email.body,
+        sender=email.sender,
+        **{"from": email.sender},
+        toRecipients=email.to_recipients or [],
+        ccRecipients=email.cc_recipients or [],
+        bccRecipients=email.bcc_recipients or [],
+        replyTo=[],
+    )
+
+
+async def _enqueue_summary_refresh(session: AsyncSession, client_id: int, end_date=None):
+    logger.info("Enqueueing summary refresh task for client_id=%s", client_id)
+    payload = {"client_id": client_id, "force": False}
+    if end_date is not None:
+        payload["end_date"] = end_date.isoformat()
+    task = await task_repo.create_task(
+        session,
+        task_type="summarize_client",
+        payload=payload,
+    )
+    logger.info(
+        "Summary refresh task enqueued task_id=%s client_id=%s status=%s",
+        task.id,
+        client_id,
+        task.status.value,
+    )
+    return task
+
+
+async def _get_client_by_email_for_user(
     session: AsyncSession,
     *,
     current_user: Accountant,
-    client_id: int | None,
-    client_name: str | None,
-    client_email: str | None,
-) -> Client:
-    """Resolve an existing client or create one for mock email workflows."""
-    if client_id is not None:
-        client = await get_client_by_id(session, client_id)
-        await authorize_client_for_user(current_user, client, current_user.role)
-        return client
-
-    if not client_name or not client_email:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Provide client_id or both client_name and client_email",
+    external_email: str,
+):
+    role = Role(current_user.role.value)
+    if role == Role.superuser:
+        client = await get_client_by_email(session, external_email)
+    else:
+        client = await get_client_by_firm_and_email(
+            session,
+            firm_id=current_user.firm_id,
+            external_email=external_email,
         )
-
-    firm_id = current_user.firm_id
-    client = await get_client_by_external_email(
-        session, firm_id=firm_id, external_email=client_email
-    )
     if client:
-        return client
+        await authorize_client_for_user(current_user, client, role)
+    return client
 
-    client = Client(firm_id=firm_id, name=client_name, external_email=client_email)
-    session.add(client)
-    await session.flush()
+
+async def _get_client_for_outbound(
+    session: AsyncSession,
+    *,
+    current_user: Accountant,
+    recipients: list[GraphRecipient],
+):
+    if not recipients:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one toRecipient is required for outbound emails.",
+        )
+    client_email = _recipient_address(recipients[0])
+    logger.info("Resolving outbound email client by recipient=%s", client_email)
+    client = await _get_client_by_email_for_user(
+        session,
+        current_user=current_user,
+        external_email=client_email,
+    )
+    if not client:
+        logger.warning("Outbound email capture skipped; client not found email=%s", client_email)
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Email capture skipped: Client with email '{client_email}' not found. "
+                "Please register this client before capturing their emails."
+            ),
+        )
+    return client
+
+
+async def _get_client_for_inbound(
+    session: AsyncSession,
+    *,
+    current_user: Accountant,
+    sender: GraphRecipient,
+):
+    sender_email = _recipient_address(sender)
+    logger.info("Resolving inbound email client by sender=%s", sender_email)
+    client = await _get_client_by_email_for_user(
+        session,
+        current_user=current_user,
+        external_email=sender_email,
+    )
+    if not client:
+        logger.warning("Inbound email capture skipped; client not found email=%s", sender_email)
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Email capture skipped: Client with email '{sender_email}' not found. "
+                "Please register this client before capturing their emails."
+            ),
+        )
     return client
 
 
@@ -54,123 +166,109 @@ async def mock_send_email(
     *,
     current_user: Accountant,
     request: MockEmailSendRequest,
-) -> EmailRead:
-    """Insert one mock email for an authorized client."""
-    client = await resolve_mock_client(
+) -> EmailCaptureResponse:
+    """
+    Insert one outbound mock email from a Microsoft Graph sendMail payload.
+    
+    Requires: Client must exist in database for the email address.
+    Does not capture emails for non-existent clients.
+    """
+    message = request.message
+    logger.info(
+        "Capturing outbound mock email sender=%s recipient_count=%s subject=%r",
+        _recipient_address(message.from_),
+        len(message.toRecipients),
+        message.subject or "",
+    )
+    client = await _get_client_for_outbound(
         session,
         current_user=current_user,
-        client_id=request.client_id,
-        client_name=request.client_name,
-        client_email=str(request.client_email) if request.client_email else None,
+        recipients=message.toRecipients,
     )
-
-    if request.direction == EmailDirection.outbound:
-        sender_email = str(request.sender_email or current_user.email)
-        recipients = [str(value) for value in (request.recipients or [client.external_email])]
-        sender_accountant_id = current_user.id
-    else:
-        sender_email = str(request.sender_email or client.external_email)
-        recipients = [str(value) for value in (request.recipients or [current_user.email])]
-        sender_accountant_id = None
 
     email = Email(
         client_id=client.id,
-        sender_accountant_id=sender_accountant_id,
-        sender_email=sender_email,
-        recipients=recipients,
-        subject=request.subject,
-        body=request.body,
-        direction=request.direction,
-        sent_at=request.sent_at or datetime.now(),
+        sender_accountant_id=current_user.id,
+        sender=_recipient_dump(message.from_),
+        sender_address=_recipient_address(message.from_),
+        to_recipients=[_recipient_dump(r) for r in message.toRecipients],
+        cc_recipients=[_recipient_dump(r) for r in message.ccRecipients],
+        bcc_recipients=[_recipient_dump(r) for r in message.bccRecipients],
+        subject=message.subject or "",
+        body=message.body.model_dump(mode="json", by_alias=True),
+        is_read=bool(message.isRead),
+        direction=EmailDirection.outbound,
+        sent_at=message.sentDateTime or message.receivedDateTime or message.createdDateTime,
     )
     session.add(email)
+    task = await _enqueue_summary_refresh(session, client.id, email.sent_at)
     await session.commit()
     await session.refresh(email)
-    await invalidate_summary_cache(client.id)
-    return EmailRead.model_validate(email)
+    logger.info(
+        "Captured outbound mock email email_id=%s client_id=%s task_id=%s",
+        email.id,
+        client.id,
+        task.id,
+    )
+    return EmailCaptureResponse(
+        message=_message_to_email_read(email),
+        summary_task_id=task.id,
+        summary_task_status=task.status.value,
+    )
 
 
-async def mock_send_thread(
+async def mock_receive_email(
     session: AsyncSession,
     *,
     current_user: Accountant,
-    request: MockThreadRequest,
-) -> MockThreadResponse:
-    """Insert a realistic CPA email thread for demo/testing."""
-    client = await resolve_mock_client(
+    request: MockEmailReceiveRequest,
+) -> EmailCaptureResponse:
+    """
+    Insert one inbound mock email from a Microsoft Graph message payload.
+    
+    Requires: Client must exist in database for the sender address.
+    """
+    logger.info(
+        "Capturing inbound mock email sender=%s recipient_count=%s subject=%r",
+        _recipient_address(request.from_),
+        len(request.toRecipients),
+        request.subject or "",
+    )
+    client = await _get_client_for_inbound(
         session,
         current_user=current_user,
-        client_id=request.client_id,
-        client_name=request.client_name,
-        client_email=str(request.client_email) if request.client_email else None,
+        sender=request.from_,
     )
-    now = datetime.now()
-    templates = [
-        (
-            EmailDirection.outbound,
-            "Tax return kickoff and document checklist",
-            "Please send W-2s, 1099-INT, 1099-DIV, mortgage interest, and charitable donation receipts.",
-        ),
-        (
-            EmailDirection.inbound,
-            "Re: Tax return kickoff and document checklist",
-            "I uploaded my W-2 and mortgage interest. I am still waiting for the 1099-INT from First Bank.",
-        ),
-        (
-            EmailDirection.outbound,
-            f"{request.topic} follow-up",
-            "Thanks. The only blocker is the missing 1099-INT. Please send it when First Bank makes it available.",
-        ),
-        (
-            EmailDirection.inbound,
-            "Estimated payment question",
-            "Can you confirm whether my Q4 estimated payment was applied? I paid it on January 12.",
-        ),
-        (
-            EmailDirection.outbound,
-            "Estimated payment confirmed",
-            "Confirmed: the Q4 estimated payment is reflected. We still need the 1099-INT before final review.",
-        ),
-        (
-            EmailDirection.inbound,
-            "1099-INT received",
-            "I received the 1099-INT and attached it. Please let me know if anything else is missing.",
-        ),
-    ]
+    received_at = request.receivedDateTime or request.sentDateTime or request.createdDateTime
 
-    emails = []
-    for index in range(request.message_count):
-        direction, subject, body = templates[index % len(templates)]
-        if direction == EmailDirection.outbound:
-            sender_email = current_user.email
-            recipients = [client.external_email]
-            sender_accountant_id = current_user.id
-        else:
-            sender_email = client.external_email
-            recipients = [current_user.email]
-            sender_accountant_id = None
-        emails.append(
-            Email(
-                client_id=client.id,
-                sender_accountant_id=sender_accountant_id,
-                sender_email=sender_email,
-                recipients=recipients,
-                subject=subject,
-                body=body,
-                direction=direction,
-                sent_at=now - timedelta(days=request.message_count - index),
-            )
-        )
-
-    session.add_all(emails)
-    await session.commit()
-    for email in emails:
-        await session.refresh(email)
-    await invalidate_summary_cache(client.id)
-    return MockThreadResponse(
+    email = Email(
         client_id=client.id,
-        inserted_count=len(emails),
-        emails=[EmailRead.model_validate(email) for email in emails],
+        sender_accountant_id=None,
+        sender=_recipient_dump(request.from_),
+        sender_address=_recipient_address(request.from_),
+        to_recipients=[_recipient_dump(r) for r in request.toRecipients],
+        cc_recipients=[_recipient_dump(r) for r in request.ccRecipients],
+        bcc_recipients=[_recipient_dump(r) for r in request.bccRecipients],
+        subject=request.subject or "",
+        body=request.body.model_dump(mode="json", by_alias=True),
+        is_read=bool(request.isRead),
+        direction=EmailDirection.inbound,
+        sent_at=received_at,
+    )
+    session.add(email)
+    task = await _enqueue_summary_refresh(session, client.id, email.sent_at)
+    await session.commit()
+    await session.refresh(email)
+    logger.info(
+        "Captured inbound mock email email_id=%s client_id=%s task_id=%s",
+        email.id,
+        client.id,
+        task.id,
+    )
+    return EmailCaptureResponse(
+        message=_message_to_email_read(email),
+        summary_task_id=task.id,
+        summary_task_status=task.status.value,
     )
 
 
@@ -185,4 +283,4 @@ async def read_client_emails(
     client = await get_client_by_id(session, client_id)
     await authorize_client_for_user(current_user, client, Role(current_user.role.value))
     emails = await list_client_emails(session, client_id, limit)
-    return [EmailRead.model_validate(email) for email in emails]
+    return [_message_to_email_read(email) for email in emails]

@@ -6,7 +6,7 @@ from app.common.schemas import Role
 from app.db.database import get_session
 from app.models.auth import Accountant
 from app.schemas.emails import EmailRead
-from app.services.auth import require_role
+from app.api.dependencies.auth import require_role
 from app.services.emails import read_client_emails
 
 router = APIRouter(prefix="/emails", tags=["emails"])
@@ -16,7 +16,12 @@ router = APIRouter(prefix="/emails", tags=["emails"])
     "/clients/{client_id}",
     response_model=list[EmailRead],
     summary="List recent client emails",
-    description="Lists recent stored emails for an authorized client.",
+    description="Returns the most recent stored emails for a client, if the requester is authorized.",
+    responses={
+        401: {"description": "Missing or invalid bearer token"},
+        403: {"description": "User cannot access this client"},
+        404: {"description": "Client not found"},
+    },
 )
 async def get_client_emails(
     client_id: int,

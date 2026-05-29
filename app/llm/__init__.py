@@ -1,3 +1,3 @@
-from app.llm.gemini import GeminiService
+from app.llm.service import LLMService
 
-__all__ = ["GeminiService"]
+__all__ = ["LLMService"]
