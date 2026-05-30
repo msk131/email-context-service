@@ -25,7 +25,7 @@ class TestRateLimitConfig:
             TASK_SUBMIT_LIMIT,
             TASK_STATUS_LIMIT,
         ]
-        
+
         for limit in limits:
             assert isinstance(limit, str)
             assert "/" in limit
@@ -51,7 +51,7 @@ class TestRateLimitConfig:
         """Task submission limits are configured."""
         submit_count = int(TASK_SUBMIT_LIMIT.split("/")[0])
         status_count = int(TASK_STATUS_LIMIT.split("/")[0])
-        
+
         # Status checks should be more permissive than submissions
         assert status_count >= submit_count
 
@@ -70,5 +70,5 @@ class TestRateLimitResponses:
         # In real integration tests, we would trigger the limiter
         # For now, we verify the handler exists
         from app.common.rate_limit import rate_limit_exception_handler
-        
+
         assert callable(rate_limit_exception_handler)

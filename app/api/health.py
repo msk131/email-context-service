@@ -1,4 +1,5 @@
 """Health check routes."""
+
 from fastapi import APIRouter
 
 from app.core.setting import settings

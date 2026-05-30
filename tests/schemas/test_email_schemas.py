@@ -30,9 +30,7 @@ def test_mock_send_email_request_accepts_graph_send_mail_payload():
                     }
                 }
             ],
-            "ccRecipients": [
-                {"emailAddress": {"address": "reviewer@example.org"}}
-            ],
+            "ccRecipients": [{"emailAddress": {"address": "reviewer@example.org"}}],
         },
         saveToSentItems=False,
     )
@@ -82,9 +80,7 @@ def test_mock_send_email_request_rejects_sender_in_recipients():
                 "sentDateTime": "2026-05-29T08:12:00Z",
                 "body": {"contentType": "HTML", "content": "This should fail."},
                 "from": {"emailAddress": {"address": "same@example.org"}},
-                "toRecipients": [
-                    {"emailAddress": {"address": "same@example.org"}}
-                ],
+                "toRecipients": [{"emailAddress": {"address": "same@example.org"}}],
             }
         )
 

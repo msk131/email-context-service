@@ -31,3 +31,6 @@ jobs:
 
       - name: Lint
         run: ruff check app tests
+
+      - name: Format check
+        run: black --check app tests

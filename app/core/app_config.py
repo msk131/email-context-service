@@ -1,4 +1,5 @@
 """FastAPI app configuration and exception handlers setup."""
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,29 +12,42 @@ from app.common.error_handlers import (
     http_exception_response,
     validation_error_response,
 )
-from app.common.rate_limit import RateLimitExceeded, limiter, rate_limit_exception_handler
+from app.common.rate_limit import (
+    RateLimitExceeded,
+    limiter,
+    rate_limit_exception_handler,
+)
 from app.core.request_handlers import get_request_id
 from app.core.setting import settings
 
 # API documentation metadata
 TAGS_METADATA = [
     {"name": "health", "description": "Application health and readiness checks."},
-    {"name": "clients", "description": "Client metadata lookup with firm-scoped authorization."},
+    {
+        "name": "clients",
+        "description": "Client metadata lookup with firm-scoped authorization.",
+    },
     {"name": "emails", "description": "Client email retrieval and context operations."},
     {"name": "firms", "description": "Firm metadata and organization information."},
-    {"name": "summaries", "description": "Summary generation, email search, conversational Q&A, and coverage reporting."},
-    {"name": "tasks", "description": "Background task submission and status monitoring."},
+    {
+        "name": "summaries",
+        "description": "Summary generation, email search, conversational Q&A, and coverage reporting.",
+    },
+    {
+        "name": "tasks",
+        "description": "Background task submission and status monitoring.",
+    },
 ]
 
 
 def create_app(app_name: str, version: str = "1.0.0", lifespan=None) -> FastAPI:
     """
     Create and configure FastAPI application instance.
-    
+
     Args:
         app_name: Application name for OpenAPI documentation
         version: Application version
-    
+
     Returns:
         Configured FastAPI application
     """
@@ -60,15 +74,17 @@ def create_app(app_name: str, version: str = "1.0.0", lifespan=None) -> FastAPI:
             "customCssUrl": "/static/swagger-custom.css",
         },
     )
-    
+
     return app
 
 
 def setup_exception_handlers(app: FastAPI) -> None:
     """Register global exception handlers."""
-    
+
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    async def http_exception_handler(
+        request: Request, exc: HTTPException
+    ) -> JSONResponse:
         """Handle HTTP exceptions with error ID and standardized error code."""
         error_id = get_request_id(request)
         return http_exception_response(request, exc, error_id)
@@ -83,10 +99,12 @@ def setup_exception_handlers(app: FastAPI) -> None:
         return validation_error_response(request, exc, error_id)
 
     @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    async def global_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
         """
         Global exception handler to capture unhandled errors and return the error ID.
-        
+
         Production-grade behavior:
         - Logs full exception stack trace alongside the associated error ID
         - Returns opaque error_id to client (never exposes raw error details)
@@ -114,6 +132,6 @@ def setup_middleware_and_static(app: FastAPI) -> None:
             allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
             expose_headers=["X-Request-ID"],
         )
-    
+
     # Mount static files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")

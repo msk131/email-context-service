@@ -1,4 +1,5 @@
 """Microsoft Graph-compatible email mock schemas."""
+
 from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
@@ -8,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 class GraphEmailAddress(BaseModel):
     """Microsoft Graph emailAddress resource."""
+
     address: EmailStr = Field(..., examples=["akshar@example.org"])
     name: Optional[str] = Field(None, max_length=255, examples=["Akshar Patel"])
 
@@ -16,6 +18,7 @@ class GraphEmailAddress(BaseModel):
 
 class GraphRecipient(BaseModel):
     """Microsoft Graph recipient resource."""
+
     emailAddress: GraphEmailAddress
 
     model_config = ConfigDict(extra="allow")
@@ -23,6 +26,7 @@ class GraphRecipient(BaseModel):
 
 class GraphItemBody(BaseModel):
     """Microsoft Graph itemBody resource."""
+
     contentType: str = Field("HTML", examples=["HTML", "Text"])
     content: str = Field(..., min_length=1, max_length=100_000)
 
@@ -37,6 +41,7 @@ class GraphMessage(BaseModel):
     needed to capture an individual email: sender/from, recipients, timestamp,
     and body content.
     """
+
     odata_type: Optional[str] = Field(None, alias="@odata.type")
     id: Optional[str] = Field(None, max_length=255)
     createdDateTime: Optional[datetime] = None
@@ -115,6 +120,7 @@ class GraphMessage(BaseModel):
 
 class GraphSendMailRequest(BaseModel):
     """Microsoft Graph sendMail action request body."""
+
     message: GraphMessage = Field(
         ...,
         examples=[
@@ -195,6 +201,7 @@ class GraphSendMailRequest(BaseModel):
 
 class GraphMessageCollectionResponse(BaseModel):
     """Microsoft Graph collection response shape for messages."""
+
     odata_context: str = Field(
         "https://graph.microsoft.com/v1.0/$metadata#users('mock')/messages",
         alias="@odata.context",
@@ -206,6 +213,7 @@ class GraphMessageCollectionResponse(BaseModel):
 
 class EmailCaptureResponse(BaseModel):
     """Result of capturing a mock email and enqueueing summary refresh."""
+
     message: GraphMessage
     summary_task_id: UUID
     summary_task_status: str

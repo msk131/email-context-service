@@ -1,4 +1,5 @@
 """Task API validation schemas."""
+
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -8,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class SummarizeClientPayload(BaseModel):
     """Payload for a client summary task."""
+
     client_id: int = Field(..., ge=1, examples=[42])
     force: bool = Field(False, examples=[True])
     start_date: datetime | None = None
@@ -24,6 +26,7 @@ class SummarizeClientPayload(BaseModel):
 
 class TaskCreateRequest(BaseModel):
     """Submit a background task."""
+
     task_type: Literal["summarize_client"]
     payload: SummarizeClientPayload
 
@@ -32,12 +35,14 @@ class TaskCreateRequest(BaseModel):
 
 class TaskCreateResponse(BaseModel):
     """Accepted task response."""
+
     task_id: UUID
     status: str
 
 
 class TaskStatusResponse(BaseModel):
     """Background task status response."""
+
     task_id: UUID
     task_type: str
     status: str

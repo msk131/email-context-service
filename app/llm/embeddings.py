@@ -1,4 +1,5 @@
 """Embedding helpers with an optional Hugging Face backend."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,7 +7,6 @@ import hashlib
 import math
 import re
 from functools import lru_cache
-
 
 VECTOR_SIZE = 384
 

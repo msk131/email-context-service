@@ -31,7 +31,9 @@ router = APIRouter(tags=["tasks"])
 async def enqueue_task(
     request: Request,
     payload: TaskCreateRequest,
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> TaskCreateResponse:
     """Submit a background task."""
@@ -42,7 +44,9 @@ async def enqueue_task(
             request=payload,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except TypeError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -66,7 +70,9 @@ async def enqueue_task(
 async def task_status(
     request: Request,
     task_id: UUID = Path(...),
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> TaskStatusResponse:
     """Get background task status."""
@@ -76,5 +82,7 @@ async def task_status(
         task_id=task_id,
     )
     if response is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="task not found"
+        )
     return response

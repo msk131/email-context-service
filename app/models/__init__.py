@@ -7,6 +7,7 @@ Same naming pattern as schemas/ and api/v1/:
 - models.firms → Firm
 - models.summaries → Email, EmailSummary, SummarizationLog
 """
+
 from app.models.auth import Accountant
 from app.models.clients import Client
 from app.models.firms import Firm

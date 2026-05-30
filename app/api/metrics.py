@@ -1,4 +1,5 @@
 """Prometheus metrics routes."""
+
 from fastapi import APIRouter
 from fastapi.responses import Response
 
@@ -9,6 +10,7 @@ except ImportError:
 
     def generate_latest() -> bytes:
         return b""
+
 
 router = APIRouter(tags=["metrics"])
 

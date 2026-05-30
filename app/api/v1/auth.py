@@ -1,4 +1,5 @@
 """Authentication API routes."""
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +9,11 @@ from app.common.rate_limit import AUTH_LOGIN_LIMIT, AUTH_REGISTRATION_LIMIT, lim
 from app.db.database import get_session
 from app.models.auth import Accountant
 from app.schemas.auth import AuthRequest, RegisterRequest, Token, UserRead
-from app.services.auth import authenticate_accountant, create_access_token, register_accountant
+from app.services.auth import (
+    authenticate_accountant,
+    create_access_token,
+    register_accountant,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

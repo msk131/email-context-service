@@ -1,4 +1,5 @@
 """Summary cache read services."""
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 

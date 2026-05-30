@@ -8,6 +8,7 @@ Same naming pattern as models/ and api/v1/:
 - schemas.firms → FirmRead
 - schemas.summaries → SummaryQuery, SummaryResult, SummaryResponse
 """
+
 from app.schemas.auth import AuthRequest, RegisterRequest, UserRead, Token
 from app.schemas.clients import ClientRead
 from app.schemas.emails import (

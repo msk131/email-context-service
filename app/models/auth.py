@@ -9,10 +9,13 @@ from app.common.models import Base, RoleEnum
 
 class Accountant(Base):
     """Accountant user model (superuser, firm_admin, or accountant)."""
+
     __tablename__ = "accountants"
 
     id = Column(Integer, primary_key=True)
-    firm_id = Column(Integer, ForeignKey("firms.id", ondelete="CASCADE"), nullable=False)
+    firm_id = Column(
+        Integer, ForeignKey("firms.id", ondelete="CASCADE"), nullable=False
+    )
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(Enum(RoleEnum), nullable=False)

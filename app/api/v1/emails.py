@@ -1,4 +1,5 @@
 """Email API routes."""
+
 from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +27,9 @@ router = APIRouter(prefix="/emails", tags=["emails"])
 async def get_client_emails(
     client_id: int = Path(..., ge=1),
     limit: int = Query(50, ge=1, le=200),
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> list[EmailRead]:
     """List client emails."""

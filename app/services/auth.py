@@ -1,4 +1,5 @@
 """Auth service - business logic for authentication."""
+
 import asyncio
 from datetime import datetime, timedelta, timezone
 
@@ -92,7 +93,9 @@ async def register_accountant(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="The first registered user must be a superuser",
             )
-        firm = await get_or_create_firm(session, firm_id=firm_id, firm_name=firm_name or "Default Firm")
+        firm = await get_or_create_firm(
+            session, firm_id=firm_id, firm_name=firm_name or "Default Firm"
+        )
     else:
         if current_user is None:
             raise HTTPException(
@@ -109,7 +112,9 @@ async def register_accountant(
                     )
                 firm = await get_or_create_firm(session, firm_id=current_user.firm_id)
             elif current_role == Role.superuser:
-                firm = await get_or_create_firm(session, firm_id=firm_id, firm_name=firm_name)
+                firm = await get_or_create_firm(
+                    session, firm_id=firm_id, firm_name=firm_name
+                )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -146,7 +151,9 @@ async def get_or_create_firm(
             detail="firm_id or firm_name is required",
         )
 
-    firm = (await session.execute(select(Firm).where(Firm.name == firm_name))).scalar_one_or_none()
+    firm = (
+        await session.execute(select(Firm).where(Firm.name == firm_name))
+    ).scalar_one_or_none()
     if firm:
         return firm
     firm = Firm(name=firm_name)
@@ -161,6 +168,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.access_token_expire_minutes
+        )
     payload.update({"exp": expire})
-    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(
+        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )

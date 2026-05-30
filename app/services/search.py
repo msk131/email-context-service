@@ -1,4 +1,5 @@
 """Search ranking helpers."""
+
 import math
 
 from app.models.clients import Client

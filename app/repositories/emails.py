@@ -1,4 +1,5 @@
 """Email repository helpers."""
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,12 +12,16 @@ async def get_client_by_external_email(
 ) -> Client | None:
     """Find a client in a firm by external email."""
     result = await session.execute(
-        select(Client).where(Client.firm_id == firm_id, Client.external_email == external_email)
+        select(Client).where(
+            Client.firm_id == firm_id, Client.external_email == external_email
+        )
     )
     return result.scalar_one_or_none()
 
 
-async def list_client_emails(session: AsyncSession, client_id: int, limit: int = 50) -> list[Email]:
+async def list_client_emails(
+    session: AsyncSession, client_id: int, limit: int = 50
+) -> list[Email]:
     """List recent client emails."""
     result = await session.execute(
         select(Email)

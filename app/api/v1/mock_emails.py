@@ -1,4 +1,5 @@
 """Mock Microsoft Graph email capture routes."""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +25,9 @@ router = APIRouter(prefix="/mock-emails", tags=["mock-emails"])
 )
 async def create_mock_sent_email(
     request: MockEmailSendRequest,
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> EmailCaptureResponse:
     """Insert one outbound mock email and leave summary work queued for the worker."""
@@ -39,7 +42,9 @@ async def create_mock_sent_email(
 )
 async def create_mock_received_email(
     request: MockEmailReceiveRequest,
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> EmailCaptureResponse:
     """Insert one inbound mock email and leave summary work queued for the worker."""

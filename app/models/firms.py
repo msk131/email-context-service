@@ -9,6 +9,7 @@ from app.common.models import Base
 
 class Firm(Base):
     """Firm (organization/company) model."""
+
     __tablename__ = "firms"
 
     id = Column(Integer, primary_key=True)
@@ -16,5 +17,9 @@ class Firm(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     # Relationships
-    accountants = relationship("Accountant", back_populates="firm", cascade="all, delete-orphan")
-    clients = relationship("Client", back_populates="firm", cascade="all, delete-orphan")
+    accountants = relationship(
+        "Accountant", back_populates="firm", cascade="all, delete-orphan"
+    )
+    clients = relationship(
+        "Client", back_populates="firm", cascade="all, delete-orphan"
+    )

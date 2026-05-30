@@ -11,7 +11,9 @@ from app.llm.prompts import render_prompt
 
 try:
     from prometheus_client import Counter
-except ModuleNotFoundError:  # pragma: no cover - dependency is declared for runtime images
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - dependency is declared for runtime images
     Counter = None
 
 
@@ -35,9 +37,7 @@ class LLMService:
     def __init__(self) -> None:
         self.api_key = settings.llm_api_key
         self.model = settings.llm_model
-        self.endpoint = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-        )
+        self.endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
 
     async def summarize(
         self, emails: list[dict[str, Any]], start_date: datetime, end_date: datetime
@@ -76,7 +76,9 @@ class LLMService:
             lines.append("\n")
         return "\n".join(lines).strip()
 
-    def _record_metrics(self, outcome: str, result: dict[str, Any] | None = None) -> None:
+    def _record_metrics(
+        self, outcome: str, result: dict[str, Any] | None = None
+    ) -> None:
         if LLM_REQUESTS is None or LLM_TOKENS is None:
             return
         LLM_REQUESTS.labels(model=self.model, outcome=outcome).inc()
@@ -104,7 +106,9 @@ class LLMService:
         async with httpx.AsyncClient(timeout=30.0) as client:
             for attempt, delay in enumerate(delays + [None]):
                 try:
-                    response = await client.post(self.endpoint, headers=headers, json=payload)
+                    response = await client.post(
+                        self.endpoint, headers=headers, json=payload
+                    )
                     response.raise_for_status()
                     data = response.json()
                     return self._parse_response(data)
@@ -123,13 +127,23 @@ class LLMService:
             if isinstance(content, dict):
                 parts = content.get("parts")
                 if isinstance(parts, list) and parts:
-                    text = parts[0].get("text") if isinstance(parts[0], dict) else parts[0]
+                    text = (
+                        parts[0].get("text") if isinstance(parts[0], dict) else parts[0]
+                    )
             elif isinstance(content, list) and content:
-                text = content[0].get("text") if isinstance(content[0], dict) else content[0]
+                text = (
+                    content[0].get("text")
+                    if isinstance(content[0], dict)
+                    else content[0]
+                )
             elif isinstance(content, str):
                 text = content
         if text is None:
-            text = data.get("output", {}).get("text") if isinstance(data.get("output"), dict) else None
+            text = (
+                data.get("output", {}).get("text")
+                if isinstance(data.get("output"), dict)
+                else None
+            )
         if text is None:
             text = json.dumps(data)
         result = self._parse_json_text(text)
@@ -171,12 +185,17 @@ class LLMService:
         self, emails: list[dict[str, Any]], start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
         actors = {email["sender_email"] for email in emails}
-        summary_text = "\n".join([f"{email['sender_email']}: {email['subject']}" for email in emails])
+        summary_text = "\n".join(
+            [f"{email['sender_email']}: {email['subject']}" for email in emails]
+        )
         return {
             "summary_text": f"Mock summary for {len(emails)} emails from {start_date.date()} to {end_date.date()}.\n"
             + summary_text,
             "actors": sorted(list(actors))[:5],
-            "concluded_discussions": ["Gathered missing client documents", "Confirmed next follow-up by accountant"],
+            "concluded_discussions": [
+                "Gathered missing client documents",
+                "Confirmed next follow-up by accountant",
+            ],
             "open_action_items": ["Client to send W-2", "Schedule signature review"],
             "token_in": max(1, len(summary_text) // 4),
             "token_out": max(1, 50),

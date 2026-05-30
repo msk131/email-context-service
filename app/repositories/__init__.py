@@ -9,6 +9,7 @@ Same naming pattern as models/, schemas/, and services/:
 - repositories.firms → Queries for Firm
 - repositories.summaries → Queries for Email, EmailSummary, SummarizationLog
 """
+
 from app.repositories.auth import get_accountant_by_email
 from app.repositories.clients import get_client_by_id
 from app.repositories.emails import get_client_by_external_email, list_client_emails

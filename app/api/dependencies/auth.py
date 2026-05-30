@@ -1,4 +1,5 @@
 """Authentication and authorization dependencies."""
+
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -24,7 +25,9 @@ async def get_current_user(
     """Get the current authenticated user from a JWT token."""
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(
+            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        )
         token_data = TokenPayload.model_validate(payload)
         user_id = int(token_data.sub)
     except (JWTError, ValidationError, ValueError) as exc:
@@ -42,7 +45,9 @@ async def get_current_user(
 
 
 async def get_optional_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(optional_security)],
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(optional_security)
+    ],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Accountant | None:
     """Return the current user when a valid token is supplied, otherwise None."""
@@ -53,7 +58,10 @@ async def get_optional_current_user(
 
 def require_role(*allowed_roles: Role):
     """Require one of the supplied roles for an endpoint."""
-    async def role_dependency(user: Accountant = Depends(get_current_user)) -> Accountant:
+
+    async def role_dependency(
+        user: Accountant = Depends(get_current_user),
+    ) -> Accountant:
         if Role(user.role.value) not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

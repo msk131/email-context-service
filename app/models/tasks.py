@@ -31,5 +31,9 @@ class BackgroundTask(Base):
     error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
-    completed_at = Column(DateTime(timezone=True), nullable=True)  # Set when task succeeds or fails
-    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Set when task completes, used for cleanup
+    completed_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Set when task succeeds or fails
+    expires_at = Column(
+        DateTime(timezone=True), nullable=True, index=True
+    )  # Set when task completes, used for cleanup

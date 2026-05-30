@@ -11,7 +11,11 @@ from app.services.email_search import _snippet, _to_search_match
 
 
 def test_snippet_focuses_on_first_query_match():
-    text = "Intro text. " + ("x" * 80) + " Missing 1099-INT from First Bank is blocking filing."
+    text = (
+        "Intro text. "
+        + ("x" * 80)
+        + " Missing 1099-INT from First Bank is blocking filing."
+    )
 
     snippet = _snippet(text, "1099-INT")
 
@@ -20,7 +24,9 @@ def test_snippet_focuses_on_first_query_match():
 
 
 def test_search_match_contains_relevance_and_client_context():
-    client = Client(id=10, firm_id=3, name="Akshar Patel", external_email="akshar@example.com")
+    client = Client(
+        id=10, firm_id=3, name="Akshar Patel", external_email="akshar@example.com"
+    )
     email = Email(
         id=55,
         client_id=10,
@@ -39,7 +45,9 @@ def test_search_match_contains_relevance_and_client_context():
 
 
 def test_search_match_exposes_only_to_recipients():
-    client = Client(id=10, firm_id=3, name="Akshar Patel", external_email="akshar@example.com")
+    client = Client(
+        id=10, firm_id=3, name="Akshar Patel", external_email="akshar@example.com"
+    )
     email = Email(
         id=55,
         client_id=10,
@@ -61,7 +69,9 @@ def test_search_match_exposes_only_to_recipients():
 
 @pytest.mark.asyncio
 async def test_search_email_context_matches_email_without_summary(monkeypatch):
-    client = Client(id=10, firm_id=3, name="Akshar Patel", external_email="akshar@example.com")
+    client = Client(
+        id=10, firm_id=3, name="Akshar Patel", external_email="akshar@example.com"
+    )
     email = Email(
         id=55,
         client_id=10,
@@ -83,7 +93,9 @@ async def test_search_email_context_matches_email_without_summary(monkeypatch):
 
     response = await email_search.search_email_context(
         None,
-        current_user=SimpleNamespace(role=SimpleNamespace(value=Role.superuser.value), firm_id=1),
+        current_user=SimpleNamespace(
+            role=SimpleNamespace(value=Role.superuser.value), firm_id=1
+        ),
         query=" the missing form",
         limit=25,
     )

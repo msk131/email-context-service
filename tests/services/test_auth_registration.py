@@ -30,7 +30,9 @@ async def test_register_additional_user_requires_auth(monkeypatch):
     async def fake_count_accountants(session):
         return 1
 
-    monkeypatch.setattr("app.services.auth.get_accountant_by_email", fake_get_accountant_by_email)
+    monkeypatch.setattr(
+        "app.services.auth.get_accountant_by_email", fake_get_accountant_by_email
+    )
     monkeypatch.setattr("app.services.auth.count_accountants", fake_count_accountants)
 
     session = DummySession()
@@ -59,7 +61,9 @@ async def test_register_additional_user_with_firm_admin(monkeypatch):
     async def fake_get_or_create_firm(session, firm_id, firm_name=None):
         return Firm(id=firm_id, name="Admin Firm")
 
-    monkeypatch.setattr("app.services.auth.get_accountant_by_email", fake_get_accountant_by_email)
+    monkeypatch.setattr(
+        "app.services.auth.get_accountant_by_email", fake_get_accountant_by_email
+    )
     monkeypatch.setattr("app.services.auth.count_accountants", fake_count_accountants)
     monkeypatch.setattr("app.services.auth.get_or_create_firm", fake_get_or_create_firm)
 

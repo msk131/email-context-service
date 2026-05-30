@@ -1,4 +1,5 @@
 """Compatibility facade for summary-related services."""
+
 from app.services.conversation import answer_email_context_question
 from app.services.email_search import search_email_context
 from app.services.summary_cache import read_authorized_summary, read_cached_summary

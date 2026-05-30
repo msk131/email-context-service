@@ -1,4 +1,5 @@
 """Summary coverage report services."""
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.time import utc_now
@@ -42,11 +43,15 @@ async def get_global_summary_report(session: AsyncSession) -> ReportGlobalRespon
             firm_name=firm_name,
             client_count_with_summaries=client_count,
         )
-        for firm_id, firm_name, client_count in await list_summary_counts_by_firm(session)
+        for firm_id, firm_name, client_count in await list_summary_counts_by_firm(
+            session
+        )
     ]
     return ReportGlobalResponse(
         summaries_by_firm=rows,
         total_firms=len(rows),
-        total_clients_with_summaries=sum(row.client_count_with_summaries for row in rows),
+        total_clients_with_summaries=sum(
+            row.client_count_with_summaries for row in rows
+        ),
         generated_at=utc_now(),
     )

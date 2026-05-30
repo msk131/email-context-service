@@ -17,7 +17,13 @@ def test_llm_service_mock_response_contains_keys():
     service = LLMService()
     now = datetime.now()
     emails = [
-        {"sender_email": "john@example.org", "recipients": ["client@example.com"], "subject": "Test", "body": "Hello", "sent_at": now}
+        {
+            "sender_email": "john@example.org",
+            "recipients": ["client@example.com"],
+            "subject": "Test",
+            "body": "Hello",
+            "sent_at": now,
+        }
     ]
     output = service._mock_response(emails, now, now)
     assert "summary_text" in output

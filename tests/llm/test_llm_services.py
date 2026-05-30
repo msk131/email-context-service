@@ -35,7 +35,9 @@ def test_llm_parse_response_candidates_and_tokens():
             {
                 "content": {
                     "parts": [
-                        {"text": '{"summary_text": "OK", "actors": ["acct@example.com"]}'}
+                        {
+                            "text": '{"summary_text": "OK", "actors": ["acct@example.com"]}'
+                        }
                     ]
                 }
             }

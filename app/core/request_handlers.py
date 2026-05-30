@@ -1,4 +1,5 @@
 """Request handling utilities for middleware and request context management."""
+
 import re
 import uuid
 from fastapi import Request
@@ -23,7 +24,7 @@ def _is_valid_request_id(value: str) -> bool:
 def extract_or_generate_request_id(request: Request) -> str:
     """
     Extract request ID from headers or generate a new one.
-    
+
     Production-grade behavior:
     - Reads X-Request-ID header if provided by client (for tracing across services)
     - Generates new UUID4 if not provided
@@ -38,7 +39,7 @@ def extract_or_generate_request_id(request: Request) -> str:
 def get_request_id(request: Request) -> str:
     """
     Retrieve request ID from multiple sources in priority order.
-    
+
     Sources (in priority):
     1. request.state.request_id (set by middleware)
     2. X-Request-ID header
@@ -48,15 +49,15 @@ def get_request_id(request: Request) -> str:
     request_id = getattr(request.state, "request_id", None)
     if request_id:
         return request_id
-    
+
     header_request_id = (request.headers.get("X-Request-ID") or "").strip()
     if _is_valid_request_id(header_request_id):
         return header_request_id
-    
+
     context_request_id = request_id_ctx_var.get()
     if _is_valid_request_id(context_request_id):
         return context_request_id
-    
+
     return str(uuid.uuid4())
 
 

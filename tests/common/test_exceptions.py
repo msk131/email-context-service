@@ -1,6 +1,10 @@
 from fastapi import status
 
-from app.common.exceptions import AccessDeniedError, EntityNotFoundError, UnauthorizedError
+from app.common.exceptions import (
+    AccessDeniedError,
+    EntityNotFoundError,
+    UnauthorizedError,
+)
 
 
 def test_entity_not_found_error():

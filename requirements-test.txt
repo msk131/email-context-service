@@ -5,3 +5,4 @@ pytest-cov>=6,<8
 anyio>=4,<5
 black>=24,<26
 ruff>=0.6,<0.15
+pre-commit>=3.7,<5

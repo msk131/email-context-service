@@ -120,5 +120,7 @@ async def test_task_status_sanitizes_failure_error(monkeypatch):
         task_id=task_id,
     )
 
-    assert response.error == "Task failed. Check server logs with the task_id for details."
+    assert (
+        response.error == "Task failed. Check server logs with the task_id for details."
+    )
     assert "Traceback" not in response.error

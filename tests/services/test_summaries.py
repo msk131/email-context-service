@@ -30,7 +30,9 @@ async def test_maybe_refresh_summary_creates_summary_when_missing(monkeypatch):
 
     called = []
 
-    async def fake_refresh(session, client_id, start_date=None, end_date=None, force=False):
+    async def fake_refresh(
+        session, client_id, start_date=None, end_date=None, force=False
+    ):
         called.append(("refresh", client_id))
         return "ok"
 
@@ -52,7 +54,9 @@ async def test_maybe_refresh_summary_refreshes_after_five_new_emails(monkeypatch
 
     called = []
 
-    async def fake_refresh(session, client_id, start_date=None, end_date=None, force=False):
+    async def fake_refresh(
+        session, client_id, start_date=None, end_date=None, force=False
+    ):
         called.append(("refresh", client_id))
         return "ok"
 
@@ -70,7 +74,9 @@ async def test_maybe_refresh_summary_refreshes_after_five_new_emails(monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_maybe_refresh_summary_invalidates_cache_when_less_than_five_new_emails(monkeypatch):
+async def test_maybe_refresh_summary_invalidates_cache_when_less_than_five_new_emails(
+    monkeypatch,
+):
     async def fake_get_summary_record(session, client_id):
         return DummySummary(datetime(2026, 1, 1))
 
@@ -144,7 +150,9 @@ async def test_conversation_extracts_filters_from_question(monkeypatch):
         "_infer_conversation_client_id",
         fake_infer_client_id,
     )
-    monkeypatch.setattr(conversation_service, "search_email_context", fake_search_email_context)
+    monkeypatch.setattr(
+        conversation_service, "search_email_context", fake_search_email_context
+    )
 
     response = await summaries.answer_email_context_question(
         None,
@@ -207,7 +215,9 @@ async def test_conversation_retries_without_inferred_filters(monkeypatch):
         "_infer_conversation_client_id",
         fake_infer_client_id,
     )
-    monkeypatch.setattr(conversation_service, "search_email_context", fake_search_email_context)
+    monkeypatch.setattr(
+        conversation_service, "search_email_context", fake_search_email_context
+    )
 
     response = await summaries.answer_email_context_question(
         None,

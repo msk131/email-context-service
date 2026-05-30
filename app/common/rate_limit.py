@@ -50,6 +50,7 @@ except ImportError:
 
             return decorator
 
+
 def _auth_subject(request: Request) -> str | None:
     """Use the bearer token subject as a stable per-user key when present."""
     authorization = request.headers.get("Authorization") or ""
@@ -76,10 +77,12 @@ def rate_limit_key(request: Request) -> str:
 limiter = Limiter(key_func=rate_limit_key)
 
 
-async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+async def rate_limit_exception_handler(
+    request: Request, exc: RateLimitExceeded
+) -> JSONResponse:
     """
     Handle rate limit exceeded errors with proper error envelope.
-    
+
     Returns 429 Too Many Requests with error details.
     """
     error_id = get_request_id(request)
@@ -90,7 +93,9 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
                 "code": ErrorCode.RATE_LIMIT_EXCEEDED.value,
                 "message": "Rate limit exceeded. Please retry after some time.",
                 "error_id": error_id,
-                "details": {"retry_after": exc.detail if hasattr(exc, "detail") else None}
+                "details": {
+                    "retry_after": exc.detail if hasattr(exc, "detail") else None
+                },
             }
         },
         headers={"X-Request-ID": error_id},

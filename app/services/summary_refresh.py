@@ -1,4 +1,5 @@
 """Summary generation and refresh services."""
+
 from datetime import datetime
 from typing import Optional
 
@@ -49,9 +50,13 @@ async def refresh_client_summary(
 
     client = await load_client(session, client_id)
     emails = await get_emails(session, client_id, start_date, end_date)
-    logger.info("Loaded emails for summary client_id=%s email_count=%s", client_id, len(emails))
+    logger.info(
+        "Loaded emails for summary client_id=%s email_count=%s", client_id, len(emails)
+    )
     if not emails:
-        logger.warning("Summary refresh skipped; no emails found client_id=%s", client_id)
+        logger.warning(
+            "Summary refresh skipped; no emails found client_id=%s", client_id
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No emails found for the requested range",
@@ -78,7 +83,9 @@ async def refresh_client_summary(
                 reason="Fewer than 5 new emails have arrived since last refresh",
             )
 
-    logger.info("Calling LLM summarizer client_id=%s email_count=%s", client_id, len(emails))
+    logger.info(
+        "Calling LLM summarizer client_id=%s email_count=%s", client_id, len(emails)
+    )
     result = await LLMService().summarize(
         [
             {
@@ -128,14 +135,18 @@ async def refresh_client_summary(
     await session.commit()
     await session.refresh(summary_record)
     await invalidate_summary_cache(client_id)
-    logger.info("Summary saved client_id=%s summary_id=%s", client_id, summary_record.id)
+    logger.info(
+        "Summary saved client_id=%s summary_id=%s", client_id, summary_record.id
+    )
 
     response = summary_response_from_record(client, summary_record)
     await set_summary_cache(client_id, response.model_dump())
     return response
 
 
-async def maybe_refresh_summary_for_new_email(session: AsyncSession, client_id: int) -> None:
+async def maybe_refresh_summary_for_new_email(
+    session: AsyncSession, client_id: int
+) -> None:
     """Ensure a client's summary record exists and refresh only when needed."""
     summary_record = await get_summary_record(session, client_id)
     if summary_record is None:

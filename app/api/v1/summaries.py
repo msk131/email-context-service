@@ -4,6 +4,7 @@ Handles email summary operations.
 Calls: services.summaries for business logic
 Uses: models.summaries (ORM), schemas.summaries (validation)
 """
+
 from datetime import datetime
 
 from fastapi import APIRouter, Body, Depends, Path, Query, Request, status
@@ -60,12 +61,27 @@ router = APIRouter(prefix="/summaries", tags=["summaries"])
 @limiter.limit(SEARCH_LIMIT)
 async def search_emails(
     request: Request,
-    query: str = Query(..., min_length=2, max_length=256, description="Natural-language query or keywords."),
-    client_id: int | None = Query(None, ge=1, description="Limit search to one client."),
-    start_date: datetime | None = Query(None, description="Only include emails sent at or after this timestamp."),
-    end_date: datetime | None = Query(None, description="Only include emails sent at or before this timestamp."),
-    limit: int = Query(25, ge=1, le=100, description="Maximum number of emails to return."),
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    query: str = Query(
+        ...,
+        min_length=2,
+        max_length=256,
+        description="Natural-language query or keywords.",
+    ),
+    client_id: int | None = Query(
+        None, ge=1, description="Limit search to one client."
+    ),
+    start_date: datetime | None = Query(
+        None, description="Only include emails sent at or after this timestamp."
+    ),
+    end_date: datetime | None = Query(
+        None, description="Only include emails sent at or before this timestamp."
+    ),
+    limit: int = Query(
+        25, ge=1, le=100, description="Maximum number of emails to return."
+    ),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> EmailSearchResponse:
     """Natural-language keyword search over emails."""
@@ -99,7 +115,9 @@ async def search_emails(
 async def conversation(
     request: Request,
     request_body: ConversationRequest = Body(...),
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> ConversationResponse:
     """Question-answer interface over email context."""
@@ -171,7 +189,9 @@ async def global_summary_report(
 async def read_summary(
     request: Request,
     client_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> SummaryResponse:
     """Get cached summary for client."""
@@ -202,7 +222,9 @@ async def read_summary(
 async def refresh_summary(
     request: Request,
     client_id: int = Path(..., ge=1),
-    force: bool = Query(False, description="Force refresh even if fewer than 5 new emails."),
+    force: bool = Query(
+        False, description="Force refresh even if fewer than 5 new emails."
+    ),
     start_date: datetime | None = Query(
         None,
         description="Only include emails sent at or after this timestamp.",
@@ -211,7 +233,9 @@ async def refresh_summary(
         None,
         description="Only include emails sent at or before this timestamp.",
     ),
-    current_user: Accountant = Depends(require_role(Role.accountant, Role.firm_admin, Role.superuser)),
+    current_user: Accountant = Depends(
+        require_role(Role.accountant, Role.firm_admin, Role.superuser)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> SummaryRefreshTaskResponse:
     """Enqueue summary refresh for an external worker to process."""

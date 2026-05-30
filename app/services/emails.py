@@ -1,4 +1,5 @@
 """Microsoft Graph-compatible mock email service."""
+
 from email.utils import make_msgid
 
 from fastapi import HTTPException
@@ -76,7 +77,9 @@ def _message_to_email_read(email: Email) -> EmailRead:
     )
 
 
-async def _enqueue_summary_refresh(session: AsyncSession, client_id: int, end_date=None):
+async def _enqueue_summary_refresh(
+    session: AsyncSession, client_id: int, end_date=None
+):
     logger.info("Enqueueing summary refresh task for client_id=%s", client_id)
     payload = {"client_id": client_id, "force": False}
     if end_date is not None:
@@ -136,7 +139,9 @@ async def _get_client_for_outbound(
             detail="At least one toRecipient is required for outbound emails.",
         )
     client_email = _recipient_address(recipients[0])
-    logger.info("Resolving outbound email client by recipient=%s", _mask_email(client_email))
+    logger.info(
+        "Resolving outbound email client by recipient=%s", _mask_email(client_email)
+    )
     client = await _get_client_by_email_for_user(
         session,
         current_user=current_user,
@@ -164,7 +169,9 @@ async def _get_client_for_inbound(
     sender: GraphRecipient,
 ):
     sender_email = _recipient_address(sender)
-    logger.info("Resolving inbound email client by sender=%s", _mask_email(sender_email))
+    logger.info(
+        "Resolving inbound email client by sender=%s", _mask_email(sender_email)
+    )
     client = await _get_client_by_email_for_user(
         session,
         current_user=current_user,
@@ -193,7 +200,7 @@ async def mock_send_email(
 ) -> EmailCaptureResponse:
     """
     Insert one outbound mock email from a Microsoft Graph sendMail payload.
-    
+
     Requires: Client must exist in database for the email address.
     Does not capture emails for non-existent clients.
     """
@@ -222,7 +229,9 @@ async def mock_send_email(
         body=message.body.model_dump(mode="json", by_alias=True),
         is_read=bool(message.isRead),
         direction=EmailDirection.outbound,
-        sent_at=message.sentDateTime or message.receivedDateTime or message.createdDateTime,
+        sent_at=message.sentDateTime
+        or message.receivedDateTime
+        or message.createdDateTime,
         captured_at=utc_now(),
     )
     session.add(email)
@@ -250,7 +259,7 @@ async def mock_receive_email(
 ) -> EmailCaptureResponse:
     """
     Insert one inbound mock email from a Microsoft Graph message payload.
-    
+
     Requires: Client must exist in database for the sender address.
     """
     logger.info(
@@ -264,7 +273,9 @@ async def mock_receive_email(
         current_user=current_user,
         sender=request.from_,
     )
-    received_at = request.receivedDateTime or request.sentDateTime or request.createdDateTime
+    received_at = (
+        request.receivedDateTime or request.sentDateTime or request.createdDateTime
+    )
 
     email = Email(
         client_id=client.id,

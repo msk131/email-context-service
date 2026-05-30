@@ -1,4 +1,5 @@
 """Summary response mapping helpers."""
+
 from app.models.clients import Client
 from app.models.summaries import EmailSummary
 from app.schemas.summaries import SummaryResponse, SummaryResult

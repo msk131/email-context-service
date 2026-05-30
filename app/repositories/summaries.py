@@ -1,4 +1,5 @@
 """Summaries repository - data access for Email, EmailSummary, SummarizationLog models."""
+
 from datetime import datetime
 
 from sqlalchemy import String, cast, func, or_, select
@@ -19,9 +20,13 @@ async def load_client(session: AsyncSession, client_id: int) -> Client:
     return client
 
 
-async def get_summary_record(session: AsyncSession, client_id: int) -> EmailSummary | None:
+async def get_summary_record(
+    session: AsyncSession, client_id: int
+) -> EmailSummary | None:
     """Get cached summary record for client, or None if not found."""
-    result = await session.execute(select(EmailSummary).where(EmailSummary.client_id == client_id))
+    result = await session.execute(
+        select(EmailSummary).where(EmailSummary.client_id == client_id)
+    )
     return result.scalar_one_or_none()
 
 
@@ -39,7 +44,9 @@ async def get_emails(
     return result.scalars().all()
 
 
-async def count_new_emails(session: AsyncSession, client_id: int, after: datetime) -> int:
+async def count_new_emails(
+    session: AsyncSession, client_id: int, after: datetime
+) -> int:
     """Count emails for client sent after given timestamp."""
     result = await session.execute(
         select(func.count())
@@ -50,7 +57,9 @@ async def count_new_emails(session: AsyncSession, client_id: int, after: datetim
     return int(result.scalar_one())
 
 
-async def count_newly_captured_emails(session: AsyncSession, client_id: int, after: datetime) -> int:
+async def count_newly_captured_emails(
+    session: AsyncSession, client_id: int, after: datetime
+) -> int:
     """Count emails captured by the system after a summary refresh timestamp."""
     result = await session.execute(
         select(func.count())
@@ -79,7 +88,9 @@ async def count_firm_clients(session: AsyncSession, firm_id: int) -> int:
     return int(result.scalar_one())
 
 
-async def list_summary_counts_by_firm(session: AsyncSession) -> list[tuple[int, str, int]]:
+async def list_summary_counts_by_firm(
+    session: AsyncSession,
+) -> list[tuple[int, str, int]]:
     """List summary counts grouped by firm."""
     from app.models.firms import Firm
 
@@ -108,7 +119,7 @@ async def list_accessible_email_summary_rows(
         .join(EmailSummary, Email.client_id == EmailSummary.client_id)
         .where(EmailSummary.embedding.is_not(None))
     )
-    
+
     if role != Role.superuser:
         statement = statement.where(Client.firm_id == firm_id)
     if client_id is not None:

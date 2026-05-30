@@ -1,6 +1,18 @@
 """Summaries domain ORM models (database layer)."""
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.common.models import Base, EmailDirection
@@ -8,6 +20,7 @@ from app.common.models import Base, EmailDirection
 
 class Email(Base):
     """Email message model (Microsoft Graph API format)."""
+
     __tablename__ = "emails"
     __table_args__ = (
         Index("ix_emails_client_sent_at", "client_id", "sent_at"),
@@ -17,23 +30,27 @@ class Email(Base):
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
-    sender_accountant_id = Column(Integer, ForeignKey("accountants.id", ondelete="SET NULL"), nullable=True)
-    
+    client_id = Column(
+        Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
+    )
+    sender_accountant_id = Column(
+        Integer, ForeignKey("accountants.id", ondelete="SET NULL"), nullable=True
+    )
+
     # Sender: {address, name}
     sender = Column(JSON, nullable=False)
     sender_address = Column(String(255), nullable=False)  # Denormalized for indexing
-    
+
     # Recipients: {to_recipients, cc_recipients, bcc_recipients} - each is list of {address, name}
     to_recipients = Column(JSON, nullable=False, default=list)
     cc_recipients = Column(JSON, nullable=False, default=list)
     bcc_recipients = Column(JSON, nullable=False, default=list)
-    
+
     subject = Column(String(512), nullable=False)
-    
+
     # Body: {contentType, content}
     body = Column(JSON, nullable=False)
-    
+
     is_read = Column(Boolean, nullable=False, default=False)
     direction = Column(Enum(EmailDirection), nullable=False)
     sent_at = Column(DateTime(timezone=True), nullable=False)
@@ -87,13 +104,14 @@ class Email(Base):
 
 class EmailSummary(Base):
     """Cached email summary for a client."""
+
     __tablename__ = "email_summaries"
-    __table_args__ = (
-        UniqueConstraint("client_id", name="uq_email_summary_client"),
-    )
+    __table_args__ = (UniqueConstraint("client_id", name="uq_email_summary_client"),)
 
     id = Column(Integer, primary_key=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(
+        Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
+    )
     summary_encrypted = Column(Text, nullable=False)
     embedding = Column(JSON, nullable=True)  # Store embedding as JSON list of floats
     actors = Column(JSON, nullable=False, default=list)
@@ -110,11 +128,16 @@ class EmailSummary(Base):
 
 class SummarizationLog(Base):
     """Log of summarization operations."""
+
     __tablename__ = "summarization_logs"
-    __table_args__ = (Index("ix_summarization_logs_client_completed", "client_id", "completed_at"),)
+    __table_args__ = (
+        Index("ix_summarization_logs_client_completed", "client_id", "completed_at"),
+    )
 
     id = Column(Integer, primary_key=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(
+        Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
+    )
     email_count = Column(Integer, nullable=False)
     token_in = Column(Integer, nullable=False)
     token_out = Column(Integer, nullable=False)

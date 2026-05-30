@@ -18,8 +18,13 @@ from app.services.auth import (
 
 
 def test_create_access_token_contains_role_and_expiry():
-    token = create_access_token({"sub": "1", "role": Role.accountant.value, "firm_id": 1}, expires_delta=timedelta(minutes=5))
-    payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+    token = create_access_token(
+        {"sub": "1", "role": Role.accountant.value, "firm_id": 1},
+        expires_delta=timedelta(minutes=5),
+    )
+    payload = jwt.decode(
+        token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+    )
 
     assert payload["sub"] == "1"
     assert payload["role"] == Role.accountant.value

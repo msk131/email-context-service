@@ -78,7 +78,9 @@ async def cleanup_expired_tasks_periodically():
         try:
             await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
             async with async_session() as session:
-                deleted_count = await task_repo.cleanup_expired_tasks(session, limit=CLEANUP_BATCH_SIZE)
+                deleted_count = await task_repo.cleanup_expired_tasks(
+                    session, limit=CLEANUP_BATCH_SIZE
+                )
                 await session.commit()
                 if deleted_count > 0:
                     logger.info("Cleanup: deleted %d expired tasks", deleted_count)
@@ -89,7 +91,7 @@ async def cleanup_expired_tasks_periodically():
 async def worker_loop(poll_interval: float = 2.0):
     # Start cleanup task as a background coroutine
     asyncio.create_task(cleanup_expired_tasks_periodically())
-    
+
     while True:
         async with async_session() as session:
             pending = await task_repo.fetch_pending(session, limit=MAX_CONCURRENT_TASKS)

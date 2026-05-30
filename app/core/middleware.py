@@ -1,4 +1,5 @@
 """HTTP middleware components."""
+
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
 
@@ -13,12 +14,12 @@ logger = configure_logging()
 
 def setup_middleware(app: FastAPI) -> None:
     """Register all HTTP middleware."""
-    
+
     @app.middleware("http")
     async def append_request_id_middleware(request: Request, call_next):
         """
         Middleware to capture or generate request ID for every HTTP request.
-        
+
         Production-grade behavior:
         - Reads X-Request-ID header if provided by client (for tracing across services)
         - Generates new UUID4 if not provided
@@ -28,12 +29,12 @@ def setup_middleware(app: FastAPI) -> None:
         """
         req_id = extract_or_generate_request_id(request)
         request.state.request_id = req_id
-        
+
         # Save token into ContextVar so it's accessible across threads/async tasks
         token = request_id_ctx_var.set(req_id)
-        
+
         logger.info(f"Incoming request: {request.method} {request.url.path}")
-        
+
         try:
             response: Response = await call_next(request)
             # Return the Request ID in response headers

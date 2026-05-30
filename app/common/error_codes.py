@@ -1,10 +1,12 @@
 """Error handling with request ID and error codes."""
+
 from enum import Enum
 from typing import Optional
 
 
 class ErrorCode(str, Enum):
     """Standardized error codes for API responses."""
+
     # Client errors (4xx)
     BAD_REQUEST = "BAD_REQUEST"
     UNAUTHORIZED = "UNAUTHORIZED"
@@ -14,11 +16,11 @@ class ErrorCode(str, Enum):
     VALIDATION_ERROR = "VALIDATION_ERROR"
     UNPROCESSABLE_ENTITY = "UNPROCESSABLE_ENTITY"
     RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
-    
+
     # Server errors (5xx)
     INTERNAL_ERROR = "INTERNAL_ERROR"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
-    
+
     # Domain-specific errors
     CLIENT_NOT_FOUND = "CLIENT_NOT_FOUND"
     ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND"
@@ -29,7 +31,7 @@ class ErrorCode(str, Enum):
 
 class ErrorResponse:
     """Standardized error response builder."""
-    
+
     def __init__(
         self,
         code: ErrorCode,
@@ -43,7 +45,7 @@ class ErrorResponse:
         self.status_code = status_code
         self.request_id = request_id
         self.details = details or {}
-    
+
     def to_dict(self) -> dict:
         """Convert to response dictionary."""
         return {

@@ -1,4 +1,5 @@
 """Summary task submission services."""
+
 from datetime import datetime
 from typing import Optional
 
