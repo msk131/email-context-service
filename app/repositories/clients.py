@@ -37,6 +37,16 @@ async def get_client_by_email(
     return result.scalar_one_or_none()
 
 
+async def list_clients_by_email(
+    session: AsyncSession, external_email: str, *, limit: int = 2
+) -> list[Client]:
+    """Fetch clients by email, bounded so callers can detect ambiguity."""
+    result = await session.execute(
+        select(Client).where(Client.external_email == external_email).limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def get_client_by_firm_and_email(
     session: AsyncSession,
     *,

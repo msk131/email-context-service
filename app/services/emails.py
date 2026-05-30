@@ -14,7 +14,7 @@ from app.repositories import tasks as task_repo
 from app.repositories.clients import (
     get_client_by_firm_and_email,
     get_client_by_id,
-    get_client_by_email,
+    list_clients_by_email,
 )
 from app.repositories.emails import list_client_emails
 from app.schemas.emails import (
@@ -27,6 +27,14 @@ from app.schemas.emails import (
 from app.services.clients import authorize_client_for_user
 
 logger = get_logger("services.emails")
+
+
+def _mask_email(address: str) -> str:
+    local, separator, domain = address.partition("@")
+    if not separator:
+        return "[redacted]"
+    visible = local[:2] if len(local) > 2 else local[:1]
+    return f"{visible}***@{domain}"
 
 
 def _recipient_address(recipient: GraphRecipient) -> str:
@@ -95,7 +103,16 @@ async def _get_client_by_email_for_user(
 ):
     role = Role(current_user.role.value)
     if role == Role.superuser:
-        client = await get_client_by_email(session, external_email)
+        matches = await list_clients_by_email(session, external_email, limit=2)
+        if len(matches) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Multiple clients match this email address. Use a firm-scoped "
+                    "account or disambiguate the client before capturing this email."
+                ),
+            )
+        client = matches[0] if matches else None
     else:
         client = await get_client_by_firm_and_email(
             session,
@@ -119,14 +136,17 @@ async def _get_client_for_outbound(
             detail="At least one toRecipient is required for outbound emails.",
         )
     client_email = _recipient_address(recipients[0])
-    logger.info("Resolving outbound email client by recipient=%s", client_email)
+    logger.info("Resolving outbound email client by recipient=%s", _mask_email(client_email))
     client = await _get_client_by_email_for_user(
         session,
         current_user=current_user,
         external_email=client_email,
     )
     if not client:
-        logger.warning("Outbound email capture skipped; client not found email=%s", client_email)
+        logger.warning(
+            "Outbound email capture skipped; client not found email=%s",
+            _mask_email(client_email),
+        )
         raise HTTPException(
             status_code=404,
             detail=(
@@ -144,14 +164,17 @@ async def _get_client_for_inbound(
     sender: GraphRecipient,
 ):
     sender_email = _recipient_address(sender)
-    logger.info("Resolving inbound email client by sender=%s", sender_email)
+    logger.info("Resolving inbound email client by sender=%s", _mask_email(sender_email))
     client = await _get_client_by_email_for_user(
         session,
         current_user=current_user,
         external_email=sender_email,
     )
     if not client:
-        logger.warning("Inbound email capture skipped; client not found email=%s", sender_email)
+        logger.warning(
+            "Inbound email capture skipped; client not found email=%s",
+            _mask_email(sender_email),
+        )
         raise HTTPException(
             status_code=404,
             detail=(
@@ -177,7 +200,7 @@ async def mock_send_email(
     message = request.message
     logger.info(
         "Capturing outbound mock email sender=%s recipient_count=%s subject=%r",
-        _recipient_address(message.from_),
+        _mask_email(_recipient_address(message.from_)),
         len(message.toRecipients),
         message.subject or "",
     )
@@ -232,7 +255,7 @@ async def mock_receive_email(
     """
     logger.info(
         "Capturing inbound mock email sender=%s recipient_count=%s subject=%r",
-        _recipient_address(request.from_),
+        _mask_email(_recipient_address(request.from_)),
         len(request.toRecipients),
         request.subject or "",
     )

@@ -15,6 +15,7 @@ logger = get_logger("tasks.worker")
 # Cleanup runs every 3600 seconds (1 hour)
 CLEANUP_INTERVAL_SECONDS = 3600
 CLEANUP_BATCH_SIZE = 10000
+MAX_CONCURRENT_TASKS = 5
 
 
 async def _process_task(session: AsyncSession, task):
@@ -91,10 +92,20 @@ async def worker_loop(poll_interval: float = 2.0):
     
     while True:
         async with async_session() as session:
-            pending = await task_repo.fetch_pending(session, limit=5)
+            pending = await task_repo.fetch_pending(session, limit=MAX_CONCURRENT_TASKS)
             task_ids = [task.id for task in pending]
-        for task_id in task_ids:
-            asyncio.create_task(process_task_by_id(task_id))
+        if task_ids:
+            results = await asyncio.gather(
+                *(process_task_by_id(task_id) for task_id in task_ids),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(
+                        "Worker task processing failed: %s",
+                        result,
+                        exc_info=(type(result), result, result.__traceback__),
+                    )
         await asyncio.sleep(poll_interval)
 
 

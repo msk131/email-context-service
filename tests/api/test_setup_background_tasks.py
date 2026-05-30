@@ -65,11 +65,11 @@ async def test_mock_email_client_lookup_is_scoped_to_user_firm(monkeypatch):
         calls["external_email"] = external_email
         return Client(id=11, firm_id=firm_id, name="Akshar Patel", external_email=external_email)
 
-    async def fail_global_lookup(session, external_email):
+    async def fail_global_lookup(session, external_email, *, limit=2):
         raise AssertionError("non-superuser mock capture should not use global client lookup")
 
     monkeypatch.setattr(email_service, "get_client_by_firm_and_email", fake_get_client_by_firm_and_email)
-    monkeypatch.setattr(email_service, "get_client_by_email", fail_global_lookup)
+    monkeypatch.setattr(email_service, "list_clients_by_email", fail_global_lookup)
 
     user = Accountant(
         id=5,
@@ -87,3 +87,31 @@ async def test_mock_email_client_lookup_is_scoped_to_user_firm(monkeypatch):
 
     assert client.id == 11
     assert calls == {"firm_id": 7, "external_email": "akshar@example.org"}
+
+
+@pytest.mark.asyncio
+async def test_superuser_mock_email_lookup_rejects_ambiguous_client_email(monkeypatch):
+    async def fake_list_clients_by_email(session, external_email, *, limit=2):
+        return [
+            Client(id=11, firm_id=7, name="Akshar One", external_email=external_email),
+            Client(id=12, firm_id=8, name="Akshar Two", external_email=external_email),
+        ]
+
+    monkeypatch.setattr(email_service, "list_clients_by_email", fake_list_clients_by_email)
+
+    user = Accountant(
+        id=5,
+        firm_id=7,
+        email="super@example.org",
+        password_hash="hash",
+        role=RoleEnum.superuser,
+    )
+
+    with pytest.raises(Exception) as exc:
+        await email_service._get_client_by_email_for_user(
+            object(),
+            current_user=user,
+            external_email="akshar@example.org",
+        )
+
+    assert getattr(exc.value, "status_code", None) == 409
