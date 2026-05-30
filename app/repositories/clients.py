@@ -1,8 +1,9 @@
 """Clients repository - data access for Client model."""
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.schemas import Role
 from app.models.clients import Client
 from app.common.exceptions import EntityNotFoundError
 
@@ -23,6 +24,36 @@ async def list_clients(
     statement = select(Client).order_by(Client.name)
     if firm_id is not None:
         statement = statement.where(Client.firm_id == firm_id)
+    result = await session.execute(statement)
+    return list(result.scalars().all())
+
+
+async def list_client_inference_candidates(
+    session: AsyncSession,
+    *,
+    role: Role,
+    firm_id: int,
+    emails: list[str],
+    client_ids: list[int],
+    name_terms: list[str],
+    limit: int = 50,
+) -> list[Client]:
+    """Return a bounded set of clients that could be referenced in free text."""
+    predicates = []
+    if emails:
+        predicates.append(Client.external_email.in_(emails))
+    if client_ids:
+        predicates.append(Client.id.in_(client_ids))
+    predicates.extend(Client.name.ilike(f"%{term}%") for term in name_terms)
+
+    if not predicates:
+        return []
+
+    statement = select(Client)
+    if role != Role.superuser:
+        statement = statement.where(Client.firm_id == firm_id)
+    statement = statement.where(or_(*predicates)).order_by(Client.name).limit(limit)
+
     result = await session.execute(statement)
     return list(result.scalars().all())
 

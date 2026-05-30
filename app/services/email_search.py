@@ -1,4 +1,5 @@
 """Email context search services."""
+
 import re
 from datetime import datetime
 
@@ -32,8 +33,10 @@ def _visible_recipient_addresses(email: Email) -> list[str]:
     return recipients
 
 
-def _score_email(query: str, email: Email, client: Client) -> int:
-    terms = _search_terms(query)
+def _score_email(
+    query: str, email: Email, client: Client, terms: list[str] | None = None
+) -> int:
+    terms = terms if terms is not None else _search_terms(query)
     haystack = " ".join(
         [
             email.subject,
@@ -61,7 +64,7 @@ def _snippet(text: str, query: str, max_length: int = 220) -> str:
             while first_index > 0 and not text[first_index - 1].isspace():
                 first_index -= 1
             break
-    snippet = text[first_index:first_index + max_length].strip()
+    snippet = text[first_index : first_index + max_length].strip()
     suffix = "..." if first_index + max_length < len(text) else ""
     return _redact_sensitive_text(snippet + suffix)
 
@@ -78,8 +81,10 @@ def _to_search_match(
     query: str,
     email: Email,
     client: Client,
-    relevance_score: int,
+    relevance_score: int | None = None,
 ) -> EmailSearchMatch:
+    if relevance_score is None:
+        relevance_score = _score_email(query, email, client)
     return EmailSearchMatch(
         id=email.id,
         client_id=email.client_id,
@@ -129,6 +134,7 @@ async def search_email_context(
         )
 
     candidate_limit = min(max(limit * 10, 100), 1000)
+    search_terms = _search_terms(normalized_query)
     rows = await list_accessible_email_rows(
         session,
         role=Role(current_user.role.value),
@@ -136,12 +142,12 @@ async def search_email_context(
         client_id=client_id,
         start_date=start_date,
         end_date=end_date,
-        search_terms=_search_terms(normalized_query),
+        search_terms=search_terms,
         limit=candidate_limit,
     )
     matches = []
     for email, client in rows:
-        score = _score_email(normalized_query, email, client)
+        score = _score_email(normalized_query, email, client, search_terms)
         if score > 0:
             matches.append(_to_search_match(normalized_query, email, client, score))
     matches = sorted(

@@ -5,7 +5,7 @@ Calls: services.firms for business logic
 Uses: models.firms (ORM), schemas.firms (validation)
 """
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Path, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_session
@@ -79,7 +79,7 @@ async def create_firm(
     },
 )
 async def get_firm(
-    firm_id: int,
+    firm_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
@@ -107,8 +107,8 @@ async def get_firm(
     },
 )
 async def update_firm(
-    firm_id: int,
     request: FirmUpdate,
+    firm_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(require_role(Role.superuser, Role.firm_admin)),
     session: AsyncSession = Depends(get_session),
 ) -> FirmRead:
@@ -133,7 +133,7 @@ async def update_firm(
     },
 )
 async def delete_firm(
-    firm_id: int,
+    firm_id: int = Path(..., ge=1),
     current_user: Accountant = Depends(require_role(Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:

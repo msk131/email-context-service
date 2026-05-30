@@ -1,14 +1,14 @@
 """Conversation services over email context."""
+
 import re
 from datetime import datetime, time, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
 from app.models.auth import Accountant
-from app.models.clients import Client
+from app.repositories.clients import list_client_inference_candidates
 from app.schemas.summaries import ConversationResponse
 from app.services.email_search import search_email_context
 
@@ -156,12 +156,25 @@ async def _infer_conversation_client_id(
 ) -> Optional[int]:
     lowered = question.lower()
     role = Role(current_user.role.value)
-    statement = select(Client)
-    if role != Role.superuser:
-        statement = statement.where(Client.firm_id == current_user.firm_id)
-
-    result = await session.execute(statement)
-    clients = result.scalars().all()
+    emails = sorted(
+        set(re.findall(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b", lowered))
+    )
+    client_ids = [
+        int(match) for match in re.findall(r"\bclient\s+#?(\d{1,10})\b", lowered)
+    ]
+    name_terms = [
+        token
+        for token in re.findall(r"[a-zA-Z][a-zA-Z'-]{2,}", lowered)
+        if token not in _STOPWORDS
+    ][:12]
+    clients = await list_client_inference_candidates(
+        session,
+        role=role,
+        firm_id=current_user.firm_id,
+        emails=emails,
+        client_ids=client_ids,
+        name_terms=name_terms,
+    )
     scored: list[tuple[int, int, int]] = []
 
     for client in clients:
@@ -177,9 +190,7 @@ async def _infer_conversation_client_id(
 
         name_parts = [part for part in re.split(r"\s+", name) if len(part) >= 3]
         matched_parts = sum(
-            1
-            for part in name_parts
-            if re.search(rf"\b{re.escape(part)}\b", lowered)
+            1 for part in name_parts if re.search(rf"\b{re.escape(part)}\b", lowered)
         )
         if matched_parts and matched_parts == len(name_parts):
             score = max(score, 70 + matched_parts)
@@ -227,7 +238,9 @@ async def answer_email_context_question(
         end_date=end_date,
         limit=limit,
     )
-    if not search_response.results and (client_id is not None or start_date or end_date):
+    if not search_response.results and (
+        client_id is not None or start_date or end_date
+    ):
         search_response = await search_email_context(
             session,
             current_user=current_user,

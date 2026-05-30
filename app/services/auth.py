@@ -1,4 +1,5 @@
 """Auth service - business logic for authentication."""
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
@@ -43,6 +44,16 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+async def hash_password_async(password: str) -> str:
+    """Hash a password without blocking the event loop."""
+    return await asyncio.to_thread(hash_password, password)
+
+
+async def verify_password_async(password: str, password_hash: str) -> bool:
+    """Verify a password without blocking the event loop."""
+    return await asyncio.to_thread(verify_password, password, password_hash)
+
+
 async def authenticate_accountant(
     session: AsyncSession, email: str, password: str
 ) -> Accountant | None:
@@ -50,7 +61,7 @@ async def authenticate_accountant(
     user = await get_accountant_by_email(session, email)
     if not user:
         return None
-    if not verify_password(password, user.password_hash):
+    if not await verify_password_async(password, user.password_hash):
         return None
     return user
 
@@ -108,7 +119,7 @@ async def register_accountant(
     user = Accountant(
         firm_id=firm.id,
         email=email,
-        password_hash=hash_password(password),
+        password_hash=await hash_password_async(password),
         role=RoleEnum(role.value),
     )
     session.add(user)

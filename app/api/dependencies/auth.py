@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role, TokenPayload
@@ -24,13 +25,14 @@ async def get_current_user(
     token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        token_data = TokenPayload(**payload)
-    except JWTError as exc:
+        token_data = TokenPayload.model_validate(payload)
+        user_id = int(token_data.sub)
+    except (JWTError, ValidationError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         ) from exc
-    user = await get_accountant_by_id(session, int(token_data.sub))
+    user = await get_accountant_by_id(session, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

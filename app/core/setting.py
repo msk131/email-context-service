@@ -65,6 +65,15 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
+    @field_validator("cors_allowed_origins")
+    @classmethod
+    def reject_wildcard_credentialed_cors(cls, value: list[str]) -> list[str]:
+        if "*" in value:
+            raise ValueError(
+                "CORS_ALLOWED_ORIGINS cannot contain '*' because credentialed CORS is enabled"
+            )
+        return value
+
     @property
     def is_production(self) -> bool:
         return self.app_env in {"prod", "production"}

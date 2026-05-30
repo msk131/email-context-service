@@ -9,7 +9,7 @@ from app.cache import invalidate_summary_cache, set_summary_cache
 from app.common.time import utc_now
 from app.core.logging_config import get_logger
 from app.llm import LLMService
-from app.llm.embeddings import embed_text
+from app.llm.embeddings import embed_text_async
 from app.models.summaries import EmailSummary, SummarizationLog
 from app.repositories.summaries import (
     count_newly_captured_emails,
@@ -111,7 +111,7 @@ async def refresh_client_summary(
     summary_record.email_count_analyzed = len(emails)
     summary_record.token_in = int(result.get("token_in", 0))
     summary_record.token_out = int(result.get("token_out", 0))
-    summary_record.embedding = embed_text(result["summary_text"])
+    summary_record.embedding = await embed_text_async(result["summary_text"])
     summary_record.refreshed_at = utc_now()
 
     session.add(

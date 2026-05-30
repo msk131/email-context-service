@@ -35,14 +35,6 @@ async def enqueue_task(
     session: AsyncSession = Depends(get_session),
 ) -> TaskCreateResponse:
     """Submit a background task."""
-    if isinstance(payload, dict):
-        try:
-            payload = TaskCreateRequest.model_validate(payload)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=str(exc),
-            ) from exc
     try:
         return await enqueue_task_service(
             session,

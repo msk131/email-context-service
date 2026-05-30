@@ -1,6 +1,7 @@
 """Embedding helpers with an optional Hugging Face backend."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import re
@@ -50,6 +51,4 @@ def embed_text(text: str) -> list[float]:
 
 async def embed_text_async(text: str) -> list[float]:
     """Async wrapper for embedding (runs in thread pool to avoid blocking)."""
-    # For now, just call sync version
-    # In production, use asyncio.to_thread or similar
-    return embed_text(text)
+    return await asyncio.to_thread(embed_text, text)

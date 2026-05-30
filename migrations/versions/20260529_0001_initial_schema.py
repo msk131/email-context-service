@@ -4,10 +4,9 @@ Revision ID: 20260529_0001
 Revises:
 Create Date: 2026-05-29
 """
+
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
 
 revision = "20260529_0001"
 down_revision = None
@@ -26,7 +25,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "background_tasks",
-        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("task_type", sa.String(length=64), nullable=False),
         sa.Column("payload", sa.JSON(), nullable=False),
         sa.Column(
@@ -92,14 +91,13 @@ def upgrade() -> None:
         sa.Column("bcc_recipients", sa.JSON(), nullable=False),
         sa.Column("subject", sa.String(length=512), nullable=False),
         sa.Column("body", sa.JSON(), nullable=False),
-        sa.Column("is_read", sa.Boolean(), nullable=False),
+        sa.Column("is_read", sa.Integer(), nullable=False),
         sa.Column(
             "direction",
             sa.Enum("inbound", "outbound", name="emaildirection"),
             nullable=False,
         ),
         sa.Column("sent_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("captured_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["client_id"], ["clients.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["sender_accountant_id"],
@@ -109,7 +107,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_emails_client_sent_at", "emails", ["client_id", "sent_at"])
-    op.create_index("ix_emails_client_captured_at", "emails", ["client_id", "captured_at"])
     op.create_index("ix_emails_sender_address", "emails", ["sender_address"])
     op.create_index("ix_emails_subject", "emails", ["subject"])
     op.create_table(
@@ -149,12 +146,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_summarization_logs_client_completed", table_name="summarization_logs")
+    op.drop_index(
+        "ix_summarization_logs_client_completed", table_name="summarization_logs"
+    )
     op.drop_table("summarization_logs")
     op.drop_table("email_summaries")
     op.drop_index("ix_emails_subject", table_name="emails")
     op.drop_index("ix_emails_sender_address", table_name="emails")
-    op.drop_index("ix_emails_client_captured_at", table_name="emails")
     op.drop_index("ix_emails_client_sent_at", table_name="emails")
     op.drop_table("emails")
     op.drop_index("ix_clients_firm_id", table_name="clients")

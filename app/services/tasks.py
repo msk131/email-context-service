@@ -24,6 +24,13 @@ def _serialize_task_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _public_task_error(error: str | None) -> str | None:
+    """Return a client-safe failure message without tracebacks or internals."""
+    if not error:
+        return None
+    return "Task failed. Check server logs with the task_id for details."
+
+
 async def authorize_task_payload(
     session: AsyncSession,
     current_user: Accountant,
@@ -84,7 +91,7 @@ async def get_task_status_service(
         task_type=task.task_type,
         status=_task_status_value(task.status),
         result=task.result,
-        error=task.error,
+        error=_public_task_error(task.error),
         created_at=task.created_at,
         updated_at=task.updated_at,
     )
