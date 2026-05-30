@@ -8,7 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: sqlite+aiosqlite:///:memory:
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
       JWT_SECRET_KEY: test-secret-key-for-ci
       ENCRYPTION_KEY_HEX: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
       GEMINI_API_KEY: ""
