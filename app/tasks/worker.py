@@ -1,6 +1,6 @@
 import asyncio
-import traceback
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import async_session
 from app.core.logging_config import get_logger, request_id_ctx_var
 from app.repositories import tasks as task_repo
+from app.models.background_task import BackgroundTask
 from app.services.summaries import refresh_client_summary
 
 logger = get_logger("tasks.worker")
@@ -18,47 +19,49 @@ CLEANUP_BATCH_SIZE = 10000
 MAX_CONCURRENT_TASKS = 5
 
 
-async def _process_task(session: AsyncSession, task):
+def _task_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "client_id": int(payload.get("client_id")),
+        "start_date": _parse_datetime(payload.get("start_date")),
+        "end_date": _parse_datetime(payload.get("end_date")),
+        "force": bool(payload.get("force", False)),
+    }
+
+
+async def _process_task(session: AsyncSession, task: BackgroundTask) -> None:
     try:
         logger.info("Starting task task_id=%s task_type=%s", task.id, task.task_type)
         payload = task.payload or {}
-        # Expecting payload: { "client_id": int, "start_date": str?, "end_date": str?, "force": bool }
-        client_id = int(payload.get("client_id"))
-        start_date = _parse_datetime(payload.get("start_date"))
-        end_date = _parse_datetime(payload.get("end_date"))
-        force = bool(payload.get("force", False))
+        task_args = _task_payload(payload)
         logger.info(
             "Refreshing summary from task task_id=%s client_id=%s force=%s",
             task.id,
-            client_id,
-            force,
+            task_args["client_id"],
+            task_args["force"],
         )
 
         result = await refresh_client_summary(
             session,
-            client_id=client_id,
-            start_date=start_date,
-            end_date=end_date,
-            force=force,
+            **task_args,
         )
-        # store simplified result
         await task_repo.mark_succeeded(session, task.id, result.model_dump(mode="json"))
         await session.commit()
-        logger.info("Task succeeded task_id=%s client_id=%s", task.id, client_id)
+        logger.info(
+            "Task succeeded task_id=%s client_id=%s", task.id, task_args["client_id"]
+        )
     except Exception as exc:
-        tb = traceback.format_exc()
-        await task_repo.mark_failed(session, task.id, error=str(exc) + "\n" + tb)
+        await task_repo.mark_failed(session, task.id, error_code="TASK_EXECUTION_FAILED")
         await session.commit()
         logger.error("Task failed task_id=%s error=%s", task.id, exc, exc_info=True)
 
 
-def _parse_datetime(value):
+def _parse_datetime(value: Any) -> datetime | None:
     if value is None or isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
 
-async def process_task_by_id(task_id: UUID, request_id: str | None = None):
+async def process_task_by_id(task_id: UUID, request_id: str | None = None) -> None:
     token = request_id_ctx_var.set(request_id) if request_id else None
     try:
         async with async_session() as session:
@@ -72,7 +75,7 @@ async def process_task_by_id(task_id: UUID, request_id: str | None = None):
             request_id_ctx_var.reset(token)
 
 
-async def cleanup_expired_tasks_periodically():
+async def cleanup_expired_tasks_periodically() -> None:
     """Run cleanup every CLEANUP_INTERVAL_SECONDS to prevent unbounded table growth."""
     while True:
         try:
@@ -88,7 +91,7 @@ async def cleanup_expired_tasks_periodically():
             logger.error("Cleanup task failed: %s", e, exc_info=True)
 
 
-async def worker_loop(poll_interval: float = 2.0):
+async def worker_loop(poll_interval: float = 2.0) -> None:
     # Start cleanup task as a background coroutine
     asyncio.create_task(cleanup_expired_tasks_periodically())
 

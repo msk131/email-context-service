@@ -48,11 +48,24 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_table(
-        "accountants",
+        "users",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("firm_id", sa.Integer(), nullable=False),
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
+        sa.Column(
+            "platform_role",
+            sa.Enum("superuser", "firm_admin", "accountant", name="roleenum"),
+            nullable=True,
+        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("email"),
+    )
+    op.create_table(
+        "firm_memberships",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("firm_id", sa.Integer(), nullable=False),
         sa.Column(
             "role",
             sa.Enum("superuser", "firm_admin", "accountant", name="roleenum"),
@@ -60,8 +73,30 @@ def upgrade() -> None:
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["firm_id"], ["firms.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("email"),
+        sa.UniqueConstraint("user_id", name="uq_firm_membership_user"),
+        sa.UniqueConstraint(
+            "user_id", "firm_id", name="uq_firm_membership_user_firm"
+        ),
+    )
+    op.create_table(
+        "accountants",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("firm_id", sa.Integer(), nullable=False),
+        sa.Column("membership_id", sa.Integer(), nullable=False),
+        sa.Column("display_name", sa.String(length=255), nullable=True),
+        sa.Column("title", sa.String(length=255), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["firm_id"], ["firms.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["membership_id"], ["firm_memberships.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("membership_id"),
+        sa.UniqueConstraint("user_id", "firm_id", name="uq_accountants_user_firm"),
     )
     op.create_table(
         "clients",
@@ -83,7 +118,7 @@ def upgrade() -> None:
         "emails",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("client_id", sa.Integer(), nullable=False),
-        sa.Column("sender_accountant_id", sa.Integer(), nullable=True),
+        sa.Column("sender_user_id", sa.Integer(), nullable=True),
         sa.Column("sender", sa.JSON(), nullable=False),
         sa.Column("sender_address", sa.String(length=255), nullable=False),
         sa.Column("to_recipients", sa.JSON(), nullable=False),
@@ -100,8 +135,8 @@ def upgrade() -> None:
         sa.Column("sent_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["client_id"], ["clients.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
-            ["sender_accountant_id"],
-            ["accountants.id"],
+            ["sender_user_id"],
+            ["users.id"],
             ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -158,6 +193,8 @@ def downgrade() -> None:
     op.drop_index("ix_clients_firm_id", table_name="clients")
     op.drop_table("clients")
     op.drop_table("accountants")
+    op.drop_table("firm_memberships")
+    op.drop_table("users")
     op.drop_index(op.f("ix_background_tasks_expires_at"), table_name="background_tasks")
     op.drop_table("background_tasks")
     op.drop_table("firms")

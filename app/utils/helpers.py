@@ -1,7 +1,6 @@
 import base64
 import os
 from datetime import datetime
-from typing import Optional
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -32,7 +31,7 @@ def decrypt_text(ciphertext: str) -> str:
 
 
 def normalize_date_range(
-    start_date: Optional[datetime], end_date: Optional[datetime]
+    start_date: datetime | None, end_date: datetime | None
 ) -> tuple[datetime, datetime]:
     boundary = end_date or start_date
     tzinfo = boundary.tzinfo if boundary and boundary.tzinfo else None

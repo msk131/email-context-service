@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Path, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.user import User
 from app.api.dependencies.auth import require_role
 from app.services.firms import (
     create_firm_service,
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/firms", tags=["firms"])
     },
 )
 async def list_firms(
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),
@@ -59,7 +59,7 @@ async def list_firms(
 )
 async def create_firm(
     request: FirmCreate,
-    current_user: Accountant = Depends(require_role(Role.superuser)),
+    current_user: User = Depends(require_role(Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> FirmRead:
     """Create a firm."""
@@ -80,7 +80,7 @@ async def create_firm(
 )
 async def get_firm(
     firm_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),
@@ -109,7 +109,7 @@ async def get_firm(
 async def update_firm(
     request: FirmUpdate,
     firm_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(require_role(Role.superuser, Role.firm_admin)),
+    current_user: User = Depends(require_role(Role.superuser, Role.firm_admin)),
     session: AsyncSession = Depends(get_session),
 ) -> FirmRead:
     """Update firm details."""
@@ -134,7 +134,7 @@ async def update_firm(
 )
 async def delete_firm(
     firm_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(require_role(Role.superuser)),
+    current_user: User = Depends(require_role(Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Delete a firm."""

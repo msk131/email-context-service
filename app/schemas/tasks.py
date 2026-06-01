@@ -10,10 +10,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class SummarizeClientPayload(BaseModel):
     """Payload for a client summary task."""
 
-    client_id: int = Field(..., ge=1, examples=[42])
-    force: bool = Field(False, examples=[True])
-    start_date: datetime | None = None
-    end_date: datetime | None = None
+    client_id: int = Field(..., ge=1, description="Client id to summarize.", examples=[42])
+    force: bool = Field(
+        False, description="Force regeneration even when few emails changed.", examples=[True]
+    )
+    start_date: datetime | None = Field(
+        None, description="Only summarize emails sent at or after this timestamp."
+    )
+    end_date: datetime | None = Field(
+        None, description="Only summarize emails sent at or before this timestamp."
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -27,8 +33,12 @@ class SummarizeClientPayload(BaseModel):
 class TaskCreateRequest(BaseModel):
     """Submit a background task."""
 
-    task_type: Literal["summarize_client"]
-    payload: SummarizeClientPayload
+    task_type: Literal["summarize_client"] = Field(
+        ..., description="Background task type to enqueue."
+    )
+    payload: SummarizeClientPayload = Field(
+        ..., description="Task-specific validated payload."
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -36,17 +46,17 @@ class TaskCreateRequest(BaseModel):
 class TaskCreateResponse(BaseModel):
     """Accepted task response."""
 
-    task_id: UUID
-    status: str
+    task_id: UUID = Field(..., description="Accepted background task id.")
+    status: str = Field(..., description="Current task status.")
 
 
 class TaskStatusResponse(BaseModel):
     """Background task status response."""
 
-    task_id: UUID
-    task_type: str
-    status: str
-    result: dict[str, Any] | None = None
-    error: str | None = None
-    created_at: datetime
-    updated_at: datetime
+    task_id: UUID = Field(..., description="Background task id.")
+    task_type: str = Field(..., description="Background task type.")
+    status: str = Field(..., description="Current task status.")
+    result: dict[str, Any] | None = Field(None, description="Task result when succeeded.")
+    error: str | None = Field(None, description="Client-safe error code when failed.")
+    created_at: datetime = Field(..., description="Task creation timestamp.")
+    updated_at: datetime = Field(..., description="Last task update timestamp.")

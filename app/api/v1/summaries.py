@@ -7,14 +7,13 @@ Uses: models.summaries (ORM), schemas.summaries (validation)
 
 from datetime import datetime
 
-from fastapi import APIRouter, Body, Depends, Path, Query, Request, status
+from fastapi import APIRouter, Depends, Path, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.user import User
 from app.api.dependencies.auth import require_role
 from app.services.summaries import (
-    answer_email_context_question,
     enqueue_summary_refresh_task,
     get_firm_summary_report,
     get_global_summary_report,
@@ -22,8 +21,6 @@ from app.services.summaries import (
     search_email_context,
 )
 from app.schemas.summaries import (
-    ConversationRequest,
-    ConversationResponse,
     EmailSearchResponse,
     ReportFirmClientCount,
     ReportGlobalResponse,
@@ -34,7 +31,6 @@ from app.common.schemas import Role
 from app.common.rate_limit import (
     limiter,
     SEARCH_LIMIT,
-    CONVERSATION_LIMIT,
     REFRESH_LIMIT,
     SUMMARY_READ_LIMIT,
 )
@@ -79,7 +75,7 @@ async def search_emails(
     limit: int = Query(
         25, ge=1, le=100, description="Maximum number of emails to return."
     ),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),
@@ -93,38 +89,6 @@ async def search_emails(
         start_date=start_date,
         end_date=end_date,
         limit=limit,
-    )
-
-
-@router.post(
-    "/conversation",
-    response_model=ConversationResponse,
-    summary="Ask a question about accessible email context",
-    description=(
-        "Answers a natural-language question using matched emails as source context. "
-        "The response includes source email snippets to ground the answer."
-    ),
-    responses={
-        401: {"description": "Missing or invalid bearer token"},
-        403: {"description": "Authenticated user does not have the required role"},
-        422: {"description": "Invalid request body or date range"},
-        429: {"description": "Rate limit exceeded"},
-    },
-)
-@limiter.limit(CONVERSATION_LIMIT)
-async def conversation(
-    request: Request,
-    request_body: ConversationRequest = Body(...),
-    current_user: Accountant = Depends(
-        require_role(Role.accountant, Role.firm_admin, Role.superuser)
-    ),
-    session: AsyncSession = Depends(get_session),
-) -> ConversationResponse:
-    """Question-answer interface over email context."""
-    return await answer_email_context_question(
-        session,
-        current_user=current_user,
-        question=request_body.question,
     )
 
 
@@ -142,7 +106,7 @@ async def conversation(
 @limiter.limit("60/minute")
 async def firm_summary_report(
     request: Request,
-    current_user: Accountant = Depends(require_role(Role.firm_admin, Role.superuser)),
+    current_user: User = Depends(require_role(Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> ReportFirmClientCount:
     """Get count of clients with summaries for current firm."""
@@ -166,7 +130,7 @@ async def firm_summary_report(
 @limiter.limit("30/minute")
 async def global_summary_report(
     request: Request,
-    current_user: Accountant = Depends(require_role(Role.superuser)),
+    current_user: User = Depends(require_role(Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> ReportGlobalResponse:
     """Get summary report for all firms (superuser only)."""
@@ -189,7 +153,7 @@ async def global_summary_report(
 async def read_summary(
     request: Request,
     client_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),
@@ -233,7 +197,7 @@ async def refresh_summary(
         None,
         description="Only include emails sent at or before this timestamp.",
     ),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),

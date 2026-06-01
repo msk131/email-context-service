@@ -3,8 +3,8 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.auth import Accountant
-from app.models.clients import Client
+from app.models.user import User
+from app.models.client import Client
 from app.repositories.clients import (
     create_client,
     delete_client,
@@ -18,13 +18,13 @@ from app.common.exceptions import AccessDeniedError
 from app.common.schemas import Role
 
 
-def _role(user: Accountant) -> Role:
+def _role(user: User) -> Role:
     """Return the API role enum for an accountant."""
     return Role(user.role.value)
 
 
 async def authorize_client_for_user(
-    user: Accountant, client: Client, role: Role
+    user: User, client: Client, role: Role
 ) -> None:
     """Authorize user access to client (must be same firm or superuser).
 
@@ -37,7 +37,7 @@ async def authorize_client_for_user(
 
 
 def resolve_client_firm_id(
-    current_user: Accountant, requested_firm_id: int | None
+    current_user: User, requested_firm_id: int | None
 ) -> int:
     """Resolve and authorize the target firm for client writes."""
     if _role(current_user) == Role.superuser:
@@ -55,7 +55,7 @@ def resolve_client_firm_id(
 async def list_clients_service(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     firm_id: int | None = None,
 ) -> list[Client]:
     """List clients visible to the current user."""
@@ -70,7 +70,7 @@ async def get_client_service(
     session: AsyncSession,
     *,
     client_id: int,
-    current_user: Accountant,
+    current_user: User,
 ) -> Client:
     """Get a client after enforcing firm-scoped access."""
     client = await get_client_by_id(session, client_id)
@@ -84,7 +84,7 @@ async def create_client_service(
     name: str,
     external_email: str,
     firm_id: int | None,
-    current_user: Accountant,
+    current_user: User,
 ) -> Client:
     """Create a client in an authorized firm."""
     target_firm_id = resolve_client_firm_id(current_user, firm_id)
@@ -118,7 +118,7 @@ async def update_client_service(
     name: str | None,
     external_email: str | None,
     firm_id: int | None,
-    current_user: Accountant,
+    current_user: User,
 ) -> Client:
     """Update a client after enforcing firm-scoped access."""
     client = await get_client_by_id(session, client_id)
@@ -160,7 +160,7 @@ async def delete_client_service(
     session: AsyncSession,
     *,
     client_id: int,
-    current_user: Accountant,
+    current_user: User,
 ) -> None:
     """Delete a client after enforcing firm-scoped access."""
     client = await get_client_by_id(session, client_id)

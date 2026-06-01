@@ -10,7 +10,17 @@ from app.common.models import Base
 from app.core.setting import settings
 
 # Import models so Alembic autogenerate can see their metadata.
-from app.models import auth, clients, firms, summaries, tasks  # noqa: F401
+from app.models import (  # noqa: F401
+    accountant,
+    background_task,
+    client,
+    email,
+    email_summary,
+    firm,
+    firm_membership,
+    summarization_log,
+    user,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

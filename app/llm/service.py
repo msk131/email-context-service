@@ -5,8 +5,10 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.core import settings
+from app.core.logging_config import get_logger
 from app.llm.prompts import render_prompt
 
 try:
@@ -32,6 +34,24 @@ else:
     LLM_REQUESTS = None
     LLM_TOKENS = None
 
+logger = get_logger("llm.service")
+MAX_EMAILS_PER_SUMMARY = 80
+MAX_EMAIL_BODY_CHARS = 4_000
+
+
+class LLMEmailSummary(BaseModel):
+    """Validated structured LLM summary payload."""
+
+    summary_text: str = Field(default="", max_length=10_000)
+    actors: list[str] = Field(default_factory=list, max_length=50)
+    concluded_discussions: list[str] = Field(default_factory=list, max_length=100)
+    open_action_items: list[str] = Field(default_factory=list, max_length=100)
+
+    model_config = ConfigDict(extra="ignore")
+
+    def to_result(self) -> dict[str, Any]:
+        return self.model_dump()
+
 
 class LLMService:
     def __init__(self) -> None:
@@ -42,9 +62,10 @@ class LLMService:
     async def summarize(
         self, emails: list[dict[str, Any]], start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
-        prompt = self._build_prompt(emails, start_date, end_date)
+        bounded_emails = self._bounded_emails(emails)
+        prompt = self._build_prompt(bounded_emails, start_date, end_date)
         if not self.api_key:
-            result = self._mock_response(emails, start_date, end_date)
+            result = self._mock_response(bounded_emails, start_date, end_date)
             self._record_metrics("mock", result)
             return result
         try:
@@ -65,15 +86,27 @@ class LLMService:
             end_date=end_date.isoformat(),
         )
 
+    def _bounded_emails(self, emails: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        sorted_emails = sorted(emails, key=lambda item: item["sent_at"], reverse=True)
+        bounded = sorted_emails[:MAX_EMAILS_PER_SUMMARY]
+        if len(emails) > len(bounded):
+            logger.info(
+                "llm_email_input_truncated original_count=%s kept_count=%s",
+                len(emails),
+                len(bounded),
+            )
+        return bounded
+
     def _format_emails(self, emails: list[dict[str, Any]]) -> str:
         lines: list[str] = []
         for email in emails:
             lines.append(
-                f"[{email['sent_at'].isoformat()}] {email['sender_email']} -> {', '.join(email['recipients'])}"
+                f"<email sent_at={email['sent_at'].isoformat()} sender={email['sender_email']!r}>"
             )
-            lines.append(f"Subject: {email['subject']}")
-            lines.append(email["body"])
-            lines.append("\n")
+            lines.append(f"<recipients>{', '.join(email['recipients'])}</recipients>")
+            lines.append(f"<subject>{email['subject']}</subject>")
+            lines.append(f"<body>{str(email['body'])[:MAX_EMAIL_BODY_CHARS]}</body>")
+            lines.append("</email>")
         return "\n".join(lines).strip()
 
     def _record_metrics(
@@ -99,6 +132,27 @@ class LLMService:
                 "maxOutputTokens": 600,
                 "temperature": 0.2,
                 "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "object",
+                    "properties": {
+                        "summary_text": {"type": "string"},
+                        "actors": {"type": "array", "items": {"type": "string"}},
+                        "concluded_discussions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "open_action_items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                    "required": [
+                        "summary_text",
+                        "actors",
+                        "concluded_discussions",
+                        "open_action_items",
+                    ],
+                },
             },
         }
         delays = [1.0, 2.0, 4.0]
@@ -116,6 +170,14 @@ class LLMService:
                     last_error = exc
                     if attempt == len(delays):
                         break
+                    retry_after = None
+                    if isinstance(exc, httpx.HTTPStatusError):
+                        retry_after = exc.response.headers.get("Retry-After")
+                    if retry_after:
+                        try:
+                            delay = max(delay, float(retry_after))
+                        except ValueError:
+                            pass
                     await asyncio.sleep(delay + random.random() * 0.2)
         raise RuntimeError("LLM summarization failed after retries") from last_error
 
@@ -166,20 +228,10 @@ class LLMService:
         try:
             parsed = json.loads(raw)
             if isinstance(parsed, dict):
-                return {
-                    "summary_text": parsed.get("summary_text", ""),
-                    "actors": parsed.get("actors", []),
-                    "concluded_discussions": parsed.get("concluded_discussions", []),
-                    "open_action_items": parsed.get("open_action_items", []),
-                }
-        except json.JSONDecodeError:
+                return LLMEmailSummary.model_validate(parsed).to_result()
+        except (json.JSONDecodeError, ValidationError):
             pass
-        return {
-            "summary_text": raw.strip(),
-            "actors": [],
-            "concluded_discussions": [],
-            "open_action_items": [],
-        }
+        return LLMEmailSummary(summary_text=raw.strip()).to_result()
 
     def _mock_response(
         self, emails: list[dict[str, Any]], start_date: datetime, end_date: datetime

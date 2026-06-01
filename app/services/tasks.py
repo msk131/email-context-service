@@ -7,11 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import EntityNotFoundError
 from app.common.schemas import Role
-from app.models.auth import Accountant
-from app.models.clients import Client
+from app.models.user import User
+from app.models.client import Client
 from app.repositories import tasks as task_repo
 from app.schemas.tasks import TaskCreateRequest, TaskCreateResponse, TaskStatusResponse
 from app.services.clients import authorize_client_for_user
+
+
+class InvalidTaskPayloadError(ValueError):
+    """Raised when a submitted task payload fails service validation."""
 
 
 def _task_status_value(status: Any) -> str:
@@ -34,7 +38,7 @@ def _public_task_error(error: str | None) -> str | None:
 
 async def authorize_task_payload(
     session: AsyncSession,
-    current_user: Accountant,
+    current_user: User,
     payload: dict[str, Any],
     *,
     require_client_id: bool = False,
@@ -43,13 +47,13 @@ async def authorize_task_payload(
     client_id = payload.get("client_id")
     if client_id is None:
         if require_client_id:
-            raise ValueError("payload.client_id is required")
+            raise InvalidTaskPayloadError("payload.client_id is required")
         return
 
     try:
         resolved_client_id = int(client_id)
     except (TypeError, ValueError) as exc:
-        raise TypeError("payload.client_id must be an integer") from exc
+        raise InvalidTaskPayloadError("payload.client_id must be an integer") from exc
 
     client = await session.get(Client, resolved_client_id)
     if not client:
@@ -60,7 +64,7 @@ async def authorize_task_payload(
 async def enqueue_task_service(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     request: TaskCreateRequest,
 ) -> TaskCreateResponse:
     """Validate, authorize, and enqueue a background task."""
@@ -79,7 +83,7 @@ async def enqueue_task_service(
 async def get_task_status_service(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     task_id: UUID,
 ) -> TaskStatusResponse | None:
     """Return task status after checking payload-scoped access."""

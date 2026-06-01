@@ -1,22 +1,14 @@
 """Email repository helpers."""
 
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.clients import Client
-from app.models.summaries import Email
-
-
-async def get_client_by_external_email(
-    session: AsyncSession, *, firm_id: int, external_email: str
-) -> Client | None:
-    """Find a client in a firm by external email."""
-    result = await session.execute(
-        select(Client).where(
-            Client.firm_id == firm_id, Client.external_email == external_email
-        )
-    )
-    return result.scalar_one_or_none()
+from app.common.schemas import Role
+from app.models.client import Client
+from app.models.email import Email
+from app.models.email_summary import EmailSummary
 
 
 async def list_client_emails(
@@ -30,3 +22,117 @@ async def list_client_emails(
         .limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def list_emails_for_summary(
+    session: AsyncSession, client_id: int, start_date: datetime, end_date: datetime
+) -> list[Email]:
+    """Get emails for client within date range, ordered by sent_at."""
+    result = await session.execute(
+        select(Email)
+        .where(Email.client_id == client_id)
+        .where(Email.sent_at >= start_date)
+        .where(Email.sent_at <= end_date)
+        .order_by(Email.sent_at.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def count_emails_sent_after(
+    session: AsyncSession, client_id: int, after: datetime
+) -> int:
+    """Count emails for client sent after given timestamp."""
+    result = await session.execute(
+        select(func.count())
+        .select_from(Email)
+        .where(Email.client_id == client_id)
+        .where(Email.sent_at > after)
+    )
+    return int(result.scalar_one())
+
+
+async def count_emails_captured_after(
+    session: AsyncSession, client_id: int, after: datetime
+) -> int:
+    """Count emails captured by the system after a summary refresh timestamp."""
+    result = await session.execute(
+        select(func.count())
+        .select_from(Email)
+        .where(Email.client_id == client_id)
+        .where(Email.captured_at > after)
+    )
+    return int(result.scalar_one())
+
+
+async def list_accessible_email_summary_rows(
+    session: AsyncSession,
+    *,
+    role: Role,
+    firm_id: int,
+    client_id: int | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+) -> list[tuple[Email, Client, EmailSummary]]:
+    """List accessible email rows with summary embeddings for service ranking."""
+    statement = (
+        select(Email, Client, EmailSummary)
+        .join(Client, Email.client_id == Client.id)
+        .join(EmailSummary, Email.client_id == EmailSummary.client_id)
+        .where(EmailSummary.embedding.is_not(None))
+    )
+
+    if role != Role.superuser:
+        statement = statement.where(Client.firm_id == firm_id)
+    if client_id is not None:
+        statement = statement.where(Email.client_id == client_id)
+    if start_date is not None:
+        statement = statement.where(Email.sent_at >= start_date)
+    if end_date is not None:
+        statement = statement.where(Email.sent_at <= end_date)
+
+    result = await session.execute(statement)
+    return list(result.all())
+
+
+async def list_accessible_email_rows(
+    session: AsyncSession,
+    *,
+    role: Role,
+    firm_id: int,
+    client_id: int | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    search_terms: list[str] | None = None,
+    limit: int | None = None,
+) -> list[tuple[Email, Client]]:
+    """List accessible email rows for keyword search using DB-side filtering."""
+    statement = select(Email, Client).join(Client, Email.client_id == Client.id)
+
+    if role != Role.superuser:
+        statement = statement.where(Client.firm_id == firm_id)
+    if client_id is not None:
+        statement = statement.where(Email.client_id == client_id)
+    if start_date is not None:
+        statement = statement.where(Email.sent_at >= start_date)
+    if end_date is not None:
+        statement = statement.where(Email.sent_at <= end_date)
+    if search_terms:
+        predicates = []
+        searchable_body = cast(Email.body, String)
+        for term in search_terms:
+            pattern = f"%{term}%"
+            predicates.extend(
+                [
+                    Email.subject.ilike(pattern),
+                    searchable_body.ilike(pattern),
+                    Email.sender_address.ilike(pattern),
+                    Client.name.ilike(pattern),
+                    Client.external_email.ilike(pattern),
+                ]
+            )
+        statement = statement.where(or_(*predicates))
+    if limit is not None:
+        statement = statement.order_by(Email.sent_at.desc()).limit(limit)
+
+    result = await session.execute(statement)
+    return list(result.all())

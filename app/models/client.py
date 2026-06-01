@@ -1,18 +1,10 @@
-"""Clients domain ORM model (database layer)."""
+"""Client ORM model."""
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    UniqueConstraint,
-)
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from app.common.time import utc_now
 from app.common.models import Base
+from app.common.time import utc_now
 
 
 class Client(Base):
@@ -20,7 +12,7 @@ class Client(Base):
 
     __tablename__ = "clients"
     __table_args__ = (
-        Index("ix_clients_firm_id", "firm_id"),  # For permission checks
+        Index("ix_clients_firm_id", "firm_id"),
         UniqueConstraint(
             "firm_id", "external_email", name="uq_clients_firm_external_email"
         ),
@@ -34,7 +26,6 @@ class Client(Base):
     external_email = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    # Relationships
     firm = relationship("Firm", back_populates="clients")
     emails = relationship(
         "Email", back_populates="client", cascade="all, delete-orphan"

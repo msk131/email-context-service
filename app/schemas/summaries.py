@@ -1,17 +1,20 @@
 """Summaries domain validation schemas (Pydantic layer)."""
 
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class SummaryQuery(BaseModel):
     """Query parameters for summary endpoint."""
 
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: datetime | None = Field(
+        None, description="Only include emails sent at or after this timestamp."
+    )
+    end_date: datetime | None = Field(
+        None, description="Only include emails sent at or before this timestamp."
+    )
 
 
 class SummaryResult(BaseModel):
@@ -21,13 +24,13 @@ class SummaryResult(BaseModel):
         ...,
         examples=["Client provided W-2s and still needs to send brokerage statements."],
     )
-    actors: List[str] = Field(
+    actors: list[str] = Field(
         default_factory=list, examples=[["client@example.com", "sara@example.org"]]
     )
-    concluded_discussions: List[str] = Field(
+    concluded_discussions: list[str] = Field(
         default_factory=list, examples=[["Confirmed filing extension."]]
     )
-    open_action_items: List[str] = Field(
+    open_action_items: list[str] = Field(
         default_factory=list, examples=[["Client to send 1099-INT."]]
     )
     email_count_analyzed: int = Field(..., ge=0, examples=[12])
@@ -44,10 +47,10 @@ class SummaryResponse(BaseModel):
     firm_id: int = Field(..., examples=[7])
     refreshed_at: datetime
     skipped: bool = Field(False, examples=[False])
-    reason: Optional[str] = Field(
+    reason: str | None = Field(
         None, examples=["Fewer than 5 new emails have arrived since last refresh"]
     )
-    result: Optional[SummaryResult] = None
+    result: SummaryResult | None = None
 
 
 class SummaryRefreshTaskResponse(BaseModel):
@@ -77,7 +80,7 @@ class ReportFirmSummaryRow(BaseModel):
 class ReportGlobalResponse(BaseModel):
     """Global summary report (all firms)."""
 
-    summaries_by_firm: List[ReportFirmSummaryRow] = Field(default_factory=list)
+    summaries_by_firm: list[ReportFirmSummaryRow] = Field(default_factory=list)
     total_firms: int = Field(..., ge=0, examples=[12])
     total_clients_with_summaries: int = Field(..., ge=0, examples=[156])
     generated_at: datetime
@@ -90,7 +93,7 @@ class EmailSearchMatch(BaseModel):
     client_id: int = Field(..., examples=[101])
     client_name: str = Field(..., examples=["Akshar Patel"])
     sender_email: str = Field(..., examples=["akshar@example.com"])
-    recipients: List[str] = Field(default_factory=list, examples=[["sara@example.org"]])
+    recipients: list[str] = Field(default_factory=list, examples=[["sara@example.org"]])
     subject: str = Field(..., max_length=512, examples=["1099-INT follow-up"])
     snippet: str = Field(
         ...,
@@ -110,38 +113,4 @@ class EmailSearchResponse(BaseModel):
         ..., min_length=2, max_length=256, examples=["clients missing 1099-INT"]
     )
     total: int = Field(..., ge=0, examples=[4])
-    results: List[EmailSearchMatch] = Field(default_factory=list)
-
-
-class ConversationRequest(BaseModel):
-    """Question-answer request over accessible email context."""
-
-    question: str = Field(
-        ...,
-        min_length=3,
-        max_length=1000,
-        examples=["What is still blocking Akshar's tax return?"],
-    )
-
-    model_config = ConfigDict(extra="forbid")
-
-    @field_validator("question")
-    @classmethod
-    def normalize_question(cls, value: str) -> str:
-        normalized = " ".join(value.split())
-        if len(normalized) < 3:
-            raise ValueError(
-                "question must contain at least 3 non-whitespace characters"
-            )
-        return normalized
-
-
-class ConversationResponse(BaseModel):
-    """Conversational answer grounded in matched emails."""
-
-    question: str = Field(
-        ..., max_length=1000, examples=["What is still blocking Akshar's tax return?"]
-    )
-    answer: str = Field(..., examples=["The main blocker is the missing 1099-INT."])
-    source_email_count: int = Field(..., ge=0, examples=[3])
-    sources: List[EmailSearchMatch] = Field(default_factory=list)
+    results: list[EmailSearchMatch] = Field(default_factory=list)

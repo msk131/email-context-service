@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.firms import Firm
+from app.models.firm import Firm
 from app.common.exceptions import EntityNotFoundError
 
 

@@ -7,6 +7,7 @@ Same naming pattern as models/ and api/v1/:
 - schemas.emails → EmailRead, MockEmailSendRequest, MockEmailReceiveRequest
 - schemas.firms → FirmRead
 - schemas.summaries → SummaryQuery, SummaryResult, SummaryResponse
+- schemas.conversation → ConversationRequest, ConversationResponse
 """
 
 from app.schemas.auth import AuthRequest, RegisterRequest, UserRead, Token
@@ -17,6 +18,7 @@ from app.schemas.emails import (
     MockEmailSendRequest,
 )
 from app.schemas.firms import FirmRead
+from app.schemas.conversation import ConversationRequest, ConversationResponse
 from app.schemas.summaries import (
     SummaryQuery,
     SummaryResult,
@@ -39,6 +41,8 @@ __all__ = [
     "SummaryQuery",
     "SummaryResult",
     "SummaryResponse",
+    "ConversationRequest",
+    "ConversationResponse",
     "ReportFirmClientCount",
     "ReportFirmSummaryRow",
     "ReportGlobalResponse",

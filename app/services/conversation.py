@@ -7,9 +7,9 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
-from app.models.auth import Accountant
+from app.models.user import User
 from app.repositories.clients import list_client_inference_candidates
-from app.schemas.summaries import ConversationResponse
+from app.schemas.conversation import ConversationResponse
 from app.services.email_search import search_email_context
 
 _STOPWORDS = {
@@ -151,7 +151,7 @@ def _conversation_search_query(question: str) -> str:
 async def _infer_conversation_client_id(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     question: str,
 ) -> Optional[int]:
     lowered = question.lower()
@@ -216,7 +216,7 @@ async def _infer_conversation_client_id(
 async def answer_email_context_question(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     question: str,
 ) -> ConversationResponse:
     """Answer a natural-language question from accessible email context."""

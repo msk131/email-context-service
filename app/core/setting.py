@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     summary_cache_max_items: int = Field(
         512, validation_alias="SUMMARY_CACHE_MAX_ITEMS"
     )
+    redis_url: str = Field("", validation_alias="REDIS_URL")
 
     # HTTP security controls
     cors_allowed_origins: list[str] = Field(

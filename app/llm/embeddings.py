@@ -7,12 +7,13 @@ import hashlib
 import math
 import re
 from functools import lru_cache
+from typing import Any
 
 VECTOR_SIZE = 384
 
 
 @lru_cache(maxsize=1)
-def _load_sentence_transformer():
+def _load_sentence_transformer() -> Any | None:
     try:
         from sentence_transformers import SentenceTransformer
     except ImportError:

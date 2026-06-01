@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.auth import require_role
 from app.common.schemas import Role
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.user import User
 from app.schemas.emails import (
     EmailCaptureResponse,
     MockEmailReceiveRequest,
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/mock-emails", tags=["mock-emails"])
 )
 async def create_mock_sent_email(
     request: MockEmailSendRequest,
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),
@@ -42,7 +42,7 @@ async def create_mock_sent_email(
 )
 async def create_mock_received_email(
     request: MockEmailReceiveRequest,
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),

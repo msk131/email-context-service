@@ -9,8 +9,8 @@ from app.common.models import EmailDirection
 from app.common.schemas import Role
 from app.common.time import utc_now
 from app.core.logging_config import get_logger
-from app.models.auth import Accountant
-from app.models.summaries import Email
+from app.models.user import User
+from app.models.email import Email
 from app.repositories import tasks as task_repo
 from app.repositories.clients import (
     get_client_by_firm_and_email,
@@ -101,7 +101,7 @@ async def _enqueue_summary_refresh(
 async def _get_client_by_email_for_user(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     external_email: str,
 ):
     role = Role(current_user.role.value)
@@ -130,7 +130,7 @@ async def _get_client_by_email_for_user(
 async def _get_client_for_outbound(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     recipients: list[GraphRecipient],
 ):
     if not recipients:
@@ -165,7 +165,7 @@ async def _get_client_for_outbound(
 async def _get_client_for_inbound(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     sender: GraphRecipient,
 ):
     sender_email = _recipient_address(sender)
@@ -195,7 +195,7 @@ async def _get_client_for_inbound(
 async def mock_send_email(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     request: MockEmailSendRequest,
 ) -> EmailCaptureResponse:
     """
@@ -219,7 +219,7 @@ async def mock_send_email(
 
     email = Email(
         client_id=client.id,
-        sender_accountant_id=current_user.id,
+        sender_user_id=current_user.id,
         sender=_recipient_dump(message.from_),
         sender_address=_recipient_address(message.from_),
         to_recipients=[_recipient_dump(r) for r in message.toRecipients],
@@ -254,7 +254,7 @@ async def mock_send_email(
 async def mock_receive_email(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     request: MockEmailReceiveRequest,
 ) -> EmailCaptureResponse:
     """
@@ -279,7 +279,7 @@ async def mock_receive_email(
 
     email = Email(
         client_id=client.id,
-        sender_accountant_id=None,
+        sender_user_id=None,
         sender=_recipient_dump(request.from_),
         sender_address=_recipient_address(request.from_),
         to_recipients=[_recipient_dump(r) for r in request.toRecipients],
@@ -312,7 +312,7 @@ async def mock_receive_email(
 async def read_client_emails(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     client_id: int,
     limit: int,
 ) -> list[EmailRead]:

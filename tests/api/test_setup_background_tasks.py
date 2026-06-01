@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 
 from app.common.models import RoleEnum
-from app.models.auth import Accountant
-from app.models.clients import Client
+from app.models.user import User
+from app.models.client import Client
 from app.schemas.emails import GraphMessage
 from app.services import emails as email_service
 
@@ -77,7 +77,7 @@ async def test_mock_email_client_lookup_is_scoped_to_user_firm(monkeypatch):
     )
     monkeypatch.setattr(email_service, "list_clients_by_email", fail_global_lookup)
 
-    user = Accountant(
+    user = User(
         id=5,
         firm_id=7,
         email="accountant@example.org",
@@ -107,7 +107,7 @@ async def test_superuser_mock_email_lookup_rejects_ambiguous_client_email(monkey
         email_service, "list_clients_by_email", fake_list_clients_by_email
     )
 
-    user = Accountant(
+    user = User(
         id=5,
         firm_id=7,
         email="super@example.org",

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.user import User
 from app.api.dependencies.auth import require_role
 from app.services.clients import (
     create_client_service,
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 )
 async def list_clients(
     firm_id: int | None = Query(default=None, ge=1),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),
@@ -65,7 +65,7 @@ async def list_clients(
 )
 async def create_client(
     request: ClientCreate,
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),
@@ -93,7 +93,7 @@ async def create_client(
 )
 async def get_client(
     client_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),
@@ -122,7 +122,7 @@ async def get_client(
 async def update_client(
     request: ClientUpdate,
     client_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),
@@ -151,7 +151,7 @@ async def update_client(
 )
 async def delete_client(
     client_id: int = Path(..., ge=1),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.superuser, Role.firm_admin, Role.accountant)
     ),
     session: AsyncSession = Depends(get_session),

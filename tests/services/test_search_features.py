@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.common.schemas import Role
-from app.models.clients import Client
-from app.models.summaries import Email
+from app.models.client import Client
+from app.models.email import Email
 from app.services import email_search
 from app.services.email_search import _snippet, _to_search_match
 

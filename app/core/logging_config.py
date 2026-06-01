@@ -1,7 +1,10 @@
 """Application logging helpers."""
 
+import json
 import logging
 from contextvars import ContextVar
+from datetime import datetime, timezone
+from typing import Any
 
 request_id_ctx_var: ContextVar[str] = ContextVar("request_id", default="-")
 
@@ -14,6 +17,22 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+class JsonFormatter(logging.Formatter):
+    """Render logs as structured JSON for production log pipelines."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, Any] = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "request_id": getattr(record, "request_id", "-"),
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, separators=(",", ":"), default=str)
+
+
 def configure_logging() -> logging.Logger:
     """Configure the application logger once and return it."""
     logger = logging.getLogger("email_context_service")
@@ -22,10 +41,7 @@ def configure_logging() -> logging.Logger:
 
     if not logger.handlers:
         handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            "[%(asctime)s] [%(levelname)s] [ReqID: %(request_id)s] %(name)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
+        handler.setFormatter(JsonFormatter())
         handler.addFilter(RequestIdFilter())
         logger.addHandler(handler)
 

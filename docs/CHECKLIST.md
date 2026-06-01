@@ -4,11 +4,11 @@ This checklist maps the take-home exercise requirements and evaluation criteria
 to the current repository implementation.
 
 ## P0 — Must Have
-- ✅ Firm entity model (`app/models/firms.py`)
-- ✅ Accountant entity model (`app/models/auth.py`)
-- ✅ Client entity model (`app/models/clients.py`)
-- ✅ Email entity model (`app/models/summaries.py`)
-- ✅ EmailSummary entity model (`app/models/summaries.py`)
+- ✅ Firm entity model (`app/models/firm.py`)
+- ✅ User entity model (`app/models/user.py`)
+- ✅ Client entity model (`app/models/client.py`)
+- ✅ Email entity model (`app/models/email.py`)
+- ✅ EmailSummary entity model (`app/models/email_summary.py`)
 - ✅ LLM summarization service (`app/llm/service.py`)
 - ✅ Prompt template/config support (`app/llm/prompts.yml`, `app/llm/prompts.py`)
 - ✅ Date-range validation and defaults (`app/utils/helpers.py`, `app/services/summaries.py`)
@@ -31,7 +31,7 @@ to the current repository implementation.
 ## P1 — Important Enhancements
 - ✅ Prompt config separated into YAML prompt templates (`app/llm/prompts.yml`)
 - ✅ Prometheus metrics for LLM usage (`app/llm/service.py`, `app/main.py`)
-- ✅ DB-backed task queue for heavy APIs (`app/models/tasks.py`, `app/api/v1/tasks.py`, `app/tasks/worker.py`)
+- ✅ DB-backed task queue for heavy APIs (`app/models/background_task.py`, `app/api/v1/tasks.py`, `app/tasks/worker.py`)
 - ✅ Background worker for long-running summarization tasks
 - ✅ Existing unit tests for core auth, cache, schemas, LLM, search, and utils
 - ✅ CI workflow present (`.github/workflows/ci.yml`)

@@ -1,23 +1,24 @@
-"""Database models (ORM layer).
+"""Database models (ORM layer)."""
 
-All SQLAlchemy models organized by entity.
-Same naming pattern as schemas/ and api/v1/:
-- models.auth → Accountant, etc.
-- models.clients → Client
-- models.firms → Firm
-- models.summaries → Email, EmailSummary, SummarizationLog
-"""
-
-from app.models.auth import Accountant
-from app.models.clients import Client
-from app.models.firms import Firm
-from app.models.summaries import Email, EmailSummary, SummarizationLog
+from app.models.accountant import Accountant
+from app.models.background_task import BackgroundTask, TaskStatus
+from app.models.client import Client
+from app.models.email import Email
+from app.models.email_summary import EmailSummary
+from app.models.firm import Firm
+from app.models.firm_membership import FirmMembership
+from app.models.summarization_log import SummarizationLog
+from app.models.user import User
 
 __all__ = [
+    "User",
+    "FirmMembership",
     "Accountant",
     "Client",
     "Firm",
     "Email",
     "EmailSummary",
     "SummarizationLog",
+    "BackgroundTask",
+    "TaskStatus",
 ]

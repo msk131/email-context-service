@@ -16,3 +16,6 @@ tenacity>=8.3,<10
 prometheus-client>=0.20,<0.23
 PyYAML>=6.0,<7
 slowapi>=0.1.9,<0.2
+redis>=5.0,<6
+orjson>=3.10,<4
+structlog>=24,<26

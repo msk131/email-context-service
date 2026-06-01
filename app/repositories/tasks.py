@@ -1,11 +1,12 @@
-from typing import Optional
+from collections.abc import Mapping
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.time import utc_now
-from app.models.tasks import (
+from app.models.background_task import (
     BackgroundTask,
     TaskStatus,
     TASK_TTL_SUCCEEDED,
@@ -14,12 +15,12 @@ from app.models.tasks import (
 
 
 async def create_task(
-    session: AsyncSession, task_type: str, payload: dict
+    session: AsyncSession, task_type: str, payload: Mapping[str, Any]
 ) -> BackgroundTask:
     now = utc_now()
     task = BackgroundTask(
         task_type=task_type,
-        payload=payload,
+        payload=dict(payload),
         status=TaskStatus.pending,
         created_at=now,
         updated_at=now,
@@ -29,23 +30,23 @@ async def create_task(
     return task
 
 
-async def get_task(session: AsyncSession, task_id: UUID) -> Optional[BackgroundTask]:
+async def get_task(session: AsyncSession, task_id: UUID) -> BackgroundTask | None:
     q = select(BackgroundTask).where(BackgroundTask.id == task_id)
     res = await session.execute(q)
     return res.scalars().first()
 
 
-async def fetch_pending(session: AsyncSession, limit: int = 10):
+async def fetch_pending(session: AsyncSession, limit: int = 10) -> list[BackgroundTask]:
     q = (
         select(BackgroundTask)
         .where(BackgroundTask.status == TaskStatus.pending)
         .limit(limit)
     )
     res = await session.execute(q)
-    return res.scalars().all()
+    return list(res.scalars().all())
 
 
-async def mark_running(session: AsyncSession, task_id: UUID):
+async def mark_running(session: AsyncSession, task_id: UUID) -> None:
     await session.execute(
         update(BackgroundTask)
         .where(BackgroundTask.id == task_id)
@@ -56,7 +57,7 @@ async def mark_running(session: AsyncSession, task_id: UUID):
 
 async def claim_pending_task(
     session: AsyncSession, task_id: UUID
-) -> Optional[BackgroundTask]:
+) -> BackgroundTask | None:
     """Atomically move a pending task to running and return it when claimed."""
     result = await session.execute(
         update(BackgroundTask)
@@ -72,7 +73,9 @@ async def claim_pending_task(
     return await get_task(session, task_id)
 
 
-async def mark_succeeded(session: AsyncSession, task_id: UUID, result: dict):
+async def mark_succeeded(
+    session: AsyncSession, task_id: UUID, result: Mapping[str, Any]
+) -> None:
     now = utc_now()
     expires_at = now + TASK_TTL_SUCCEEDED
     await session.execute(
@@ -80,7 +83,7 @@ async def mark_succeeded(session: AsyncSession, task_id: UUID, result: dict):
         .where(BackgroundTask.id == task_id)
         .values(
             status=TaskStatus.succeeded,
-            result=result,
+            result=dict(result),
             updated_at=now,
             completed_at=now,
             expires_at=expires_at,
@@ -89,7 +92,15 @@ async def mark_succeeded(session: AsyncSession, task_id: UUID, result: dict):
     await session.flush()
 
 
-async def mark_failed(session: AsyncSession, task_id: UUID, error: str):
+async def mark_failed(
+    session: AsyncSession,
+    task_id: UUID,
+    error: str | None = None,
+    *,
+    error_code: str = "TASK_EXECUTION_FAILED",
+) -> None:
+    """Mark a task failed without persisting raw exception details."""
+    _ = error
     now = utc_now()
     expires_at = now + TASK_TTL_FAILED
     await session.execute(
@@ -97,7 +108,7 @@ async def mark_failed(session: AsyncSession, task_id: UUID, error: str):
         .where(BackgroundTask.id == task_id)
         .values(
             status=TaskStatus.failed,
-            error=error,
+            error=error_code,
             updated_at=now,
             completed_at=now,
             expires_at=expires_at,
@@ -131,4 +142,4 @@ async def cleanup_expired_tasks(session: AsyncSession, limit: int = 10000) -> in
         delete(BackgroundTask).where(BackgroundTask.id.in_(expired_ids))
     )
     await session.flush()
-    return result.rowcount
+    return int(result.rowcount or 0)

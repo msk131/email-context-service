@@ -1,7 +1,7 @@
 """Microsoft Graph-compatible email mock schemas."""
 
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
@@ -11,7 +11,7 @@ class GraphEmailAddress(BaseModel):
     """Microsoft Graph emailAddress resource."""
 
     address: EmailStr = Field(..., examples=["akshar@example.org"])
-    name: Optional[str] = Field(None, max_length=255, examples=["Akshar Patel"])
+    name: str | None = Field(None, max_length=255, examples=["Akshar Patel"])
 
     model_config = ConfigDict(extra="allow")
 
@@ -42,34 +42,34 @@ class GraphMessage(BaseModel):
     and body content.
     """
 
-    odata_type: Optional[str] = Field(None, alias="@odata.type")
-    id: Optional[str] = Field(None, max_length=255)
-    createdDateTime: Optional[datetime] = None
-    lastModifiedDateTime: Optional[datetime] = None
-    receivedDateTime: Optional[datetime] = None
-    sentDateTime: Optional[datetime] = None
-    hasAttachments: Optional[bool] = None
-    internetMessageId: Optional[str] = Field(None, max_length=998)
-    subject: Optional[str] = Field(None, max_length=512)
-    bodyPreview: Optional[str] = Field(None, max_length=1024)
-    importance: Optional[str] = Field(None, max_length=32)
-    parentFolderId: Optional[str] = Field(None, max_length=255)
-    conversationId: Optional[str] = Field(None, max_length=255)
-    conversationIndex: Optional[str] = Field(None, max_length=2048)
-    isDeliveryReceiptRequested: Optional[bool] = None
-    isReadReceiptRequested: Optional[bool] = None
-    isRead: Optional[bool] = None
-    isDraft: Optional[bool] = None
-    webLink: Optional[str] = Field(None, max_length=2048)
-    inferenceClassification: Optional[str] = Field(None, max_length=64)
+    odata_type: str | None = Field(None, alias="@odata.type")
+    id: str | None = Field(None, max_length=255)
+    createdDateTime: datetime | None = None
+    lastModifiedDateTime: datetime | None = None
+    receivedDateTime: datetime | None = None
+    sentDateTime: datetime | None = None
+    hasAttachments: bool | None = None
+    internetMessageId: str | None = Field(None, max_length=998)
+    subject: str | None = Field(None, max_length=512)
+    bodyPreview: str | None = Field(None, max_length=1024)
+    importance: str | None = Field(None, max_length=32)
+    parentFolderId: str | None = Field(None, max_length=255)
+    conversationId: str | None = Field(None, max_length=255)
+    conversationIndex: str | None = Field(None, max_length=2048)
+    isDeliveryReceiptRequested: bool | None = None
+    isReadReceiptRequested: bool | None = None
+    isRead: bool | None = None
+    isDraft: bool | None = None
+    webLink: str | None = Field(None, max_length=2048)
+    inferenceClassification: str | None = Field(None, max_length=64)
     body: GraphItemBody
-    sender: Optional[GraphRecipient] = None
-    from_: Optional[GraphRecipient] = Field(None, alias="from")
-    toRecipients: List[GraphRecipient] = Field(default_factory=list, max_length=100)
-    ccRecipients: List[GraphRecipient] = Field(default_factory=list, max_length=100)
-    bccRecipients: List[GraphRecipient] = Field(default_factory=list, max_length=100)
-    replyTo: List[GraphRecipient] = Field(default_factory=list, max_length=100)
-    flag: Optional[dict[str, Any]] = None
+    sender: GraphRecipient | None = None
+    from_: GraphRecipient | None = Field(None, alias="from")
+    toRecipients: list[GraphRecipient] = Field(default_factory=list, max_length=100)
+    ccRecipients: list[GraphRecipient] = Field(default_factory=list, max_length=100)
+    bccRecipients: list[GraphRecipient] = Field(default_factory=list, max_length=100)
+    replyTo: list[GraphRecipient] = Field(default_factory=list, max_length=100)
+    flag: dict[str, Any] | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -206,7 +206,7 @@ class GraphMessageCollectionResponse(BaseModel):
         "https://graph.microsoft.com/v1.0/$metadata#users('mock')/messages",
         alias="@odata.context",
     )
-    value: List[GraphMessage]
+    value: list[GraphMessage]
 
     model_config = ConfigDict(populate_by_name=True)
 

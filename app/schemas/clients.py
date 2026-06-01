@@ -8,17 +8,25 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class ClientCreate(BaseModel):
     """Client create request model."""
 
-    name: str = Field(..., min_length=1, max_length=255)
-    external_email: EmailStr
-    firm_id: int | None = Field(default=None, ge=1)
+    name: str = Field(..., min_length=1, max_length=255, description="Client name.")
+    external_email: EmailStr = Field(..., description="Client external email address.")
+    firm_id: int | None = Field(
+        default=None, ge=1, description="Target firm id; required for superusers."
+    )
 
 
 class ClientUpdate(BaseModel):
     """Client update request model."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    external_email: EmailStr | None = None
-    firm_id: int | None = Field(default=None, ge=1)
+    name: str | None = Field(
+        default=None, min_length=1, max_length=255, description="Updated client name."
+    )
+    external_email: EmailStr | None = Field(
+        default=None, description="Updated client external email address."
+    )
+    firm_id: int | None = Field(
+        default=None, ge=1, description="Updated firm id; superuser only."
+    )
 
 
 class ClientRead(BaseModel):

@@ -26,7 +26,7 @@ class TokenPayload(BaseModel):
 
     sub: str
     role: Role
-    firm_id: int
+    firm_id: Optional[int] = None
     exp: int
 
 

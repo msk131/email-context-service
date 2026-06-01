@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.common.models import Base
 from app.common.time import utc_now
-from app.models.tasks import (
+from app.models.background_task import (
     BackgroundTask,
     TaskStatus,
     TASK_TTL_SUCCEEDED,
@@ -77,12 +77,11 @@ class TestTaskTTLAndCleanup:
             session, "summarize_client", {"client_id": 1}
         )
 
-        error = "Something went wrong"
-        await task_repo.mark_failed(session, task.id, error)
+        await task_repo.mark_failed(session, task.id, error="Something went wrong")
 
         updated_task = await task_repo.get_task(session, task.id)
         assert updated_task.status == TaskStatus.failed
-        assert updated_task.error == error
+        assert updated_task.error == "TASK_EXECUTION_FAILED"
         assert updated_task.completed_at is not None
         assert updated_task.expires_at is not None
 
@@ -130,7 +129,7 @@ class TestTaskTTLAndCleanup:
         expired_failed = await task_repo.create_task(
             session, "summarize_client", {"client_id": 2}
         )
-        await task_repo.mark_failed(session, expired_failed.id, "error")
+        await task_repo.mark_failed(session, expired_failed.id, error="error")
 
         # Manually set their expiration in the past
         await session.execute(

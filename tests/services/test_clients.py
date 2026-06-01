@@ -3,14 +3,14 @@ import pytest
 from app.common.exceptions import AccessDeniedError
 from app.common.models import RoleEnum
 from app.common.schemas import Role
-from app.models.auth import Accountant
-from app.models.clients import Client
+from app.models.user import User
+from app.models.client import Client
 from app.services.clients import authorize_client_for_user
 
 
 @pytest.mark.asyncio
 async def test_authorize_client_for_superuser_allows_access():
-    user = Accountant(
+    user = User(
         firm_id=1,
         email="super@example.com",
         password_hash="hash",
@@ -23,7 +23,7 @@ async def test_authorize_client_for_superuser_allows_access():
 
 @pytest.mark.asyncio
 async def test_authorize_client_for_user_denies_when_firm_mismatch():
-    user = Accountant(
+    user = User(
         firm_id=1,
         email="user@example.com",
         password_hash="hash",

@@ -10,3 +10,15 @@ def test_health_route_returns_service_name():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": settings.app_name}
+
+
+def test_healthz_validates_dependencies():
+    client = TestClient(app)
+    response = client.get("/api/healthz")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": settings.app_name,
+        "database": "ok",
+    }

@@ -38,7 +38,8 @@ app/
       clients.py          Client CRUD
       firms.py            Firm CRUD
       emails.py           Client email reads
-      summaries.py        Summary reads, refresh enqueueing, search, conversation, reports
+      summaries.py        Summary reads, refresh enqueueing, search, reports
+      conversation.py     Conversational Q&A over email context
       tasks.py            Background task submission and status
   services/
     auth.py               JWT, credential hashing, RBAC, registration
@@ -47,7 +48,7 @@ app/
     firms.py              Firm lookup
     summaries.py          Summarization, search, conversation, reporting helpers
   repositories/           Focused SQLAlchemy queries
-  models/                 Firm, Accountant, Client, Email, EmailSummary, SummarizationLog
+  models/                 Firm, User, Client, Email, EmailSummary, SummarizationLog
   schemas/                Pydantic request and response models
   llm/                    LLM service and mock fallback
   tasks/                  DB-backed summarization worker
@@ -72,7 +73,7 @@ Product endpoints:
 - `GET /api/v1/summaries/{client_id}`
 - `POST /api/v1/summaries/{client_id}/refresh`
 - `GET /api/v1/summaries/search`
-- `POST /api/v1/summaries/conversation`
+- `POST /api/v1/conversation`
 - `GET /api/v1/summaries/reports/firm-summaries`
 - `GET /api/v1/summaries/reports/global-summaries`
 - `POST /api/v1/tasks`
@@ -84,8 +85,10 @@ Authentication and mock email ingestion are split into separate routers so auth 
 
 | Model | Notes |
 | --- | --- |
-| `Firm` | Parent organization for firm-scoped users and clients. |
-| `Accountant` | Authenticated account with credential hash, role, and firm id. |
+| `Firm` | Parent organization for firm memberships, accountant profiles, and clients. |
+| `User` | Authenticated login identity with credential hash. Platform superusers are marked on the user. |
+| `FirmMembership` | Single firm assignment for a user. Stores firm-scoped roles such as `firm_admin` and `accountant`; `user_id` is unique. |
+| `Accountant` | Accountant business profile tied to one user and one firm membership. |
 | `Client` | External client attached to one firm. |
 | `Email` | Stored email message for a client. Includes sender, recipients, timestamp, subject, body, and direction. |
 | `EmailSummary` | One latest summary per client. Summary text is encrypted at rest. |
@@ -110,9 +113,9 @@ core workflow:
 
 Roles:
 
-- `accountant`: can access clients and emails inside their own firm.
-- `firm_admin`: can access firm-scoped data, create users in their firm, and view firm coverage reports.
-- `superuser`: can create users across firms and view global reports.
+- `superuser`: platform role on `users`; can create users across firms and view global reports without requiring its own firm.
+- `firm_admin`: single-firm role on `firm_memberships`; can manage users/clients in that firm and view firm coverage reports.
+- `accountant`: single-firm role on `firm_memberships`; can access clients and emails inside that firm. Accountant-specific profile data lives in `accountants`.
 
 Security controls:
 

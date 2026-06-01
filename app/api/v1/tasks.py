@@ -4,10 +4,14 @@ from uuid import UUID
 
 from app.common.schemas import Role
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.user import User
 from app.schemas.tasks import TaskCreateRequest, TaskCreateResponse, TaskStatusResponse
 from app.api.dependencies.auth import require_role
-from app.services.tasks import enqueue_task_service, get_task_status_service
+from app.services.tasks import (
+    InvalidTaskPayloadError,
+    enqueue_task_service,
+    get_task_status_service,
+)
 from app.common.rate_limit import limiter, TASK_SUBMIT_LIMIT, TASK_STATUS_LIMIT
 
 router = APIRouter(tags=["tasks"])
@@ -31,7 +35,7 @@ router = APIRouter(tags=["tasks"])
 async def enqueue_task(
     request: Request,
     payload: TaskCreateRequest,
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),
@@ -43,11 +47,7 @@ async def enqueue_task(
             current_user=current_user,
             request=payload,
         )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
-    except TypeError as exc:
+    except InvalidTaskPayloadError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
@@ -70,7 +70,7 @@ async def enqueue_task(
 async def task_status(
     request: Request,
     task_id: UUID = Path(...),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),

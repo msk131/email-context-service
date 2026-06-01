@@ -1,18 +1,6 @@
-"""Summaries domain ORM models (database layer)."""
+"""Email ORM model."""
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    Enum,
-    ForeignKey,
-    Index,
-    Integer,
-    JSON,
-    String,
-    Text,
-    UniqueConstraint,
-)
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, JSON, String
 from sqlalchemy.orm import relationship
 
 from app.common.models import Base, EmailDirection
@@ -33,22 +21,18 @@ class Email(Base):
     client_id = Column(
         Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
     )
-    sender_accountant_id = Column(
-        Integer, ForeignKey("accountants.id", ondelete="SET NULL"), nullable=True
+    sender_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    # Sender: {address, name}
     sender = Column(JSON, nullable=False)
-    sender_address = Column(String(255), nullable=False)  # Denormalized for indexing
+    sender_address = Column(String(255), nullable=False)
 
-    # Recipients: {to_recipients, cc_recipients, bcc_recipients} - each is list of {address, name}
     to_recipients = Column(JSON, nullable=False, default=list)
     cc_recipients = Column(JSON, nullable=False, default=list)
     bcc_recipients = Column(JSON, nullable=False, default=list)
 
     subject = Column(String(512), nullable=False)
-
-    # Body: {contentType, content}
     body = Column(JSON, nullable=False)
 
     is_read = Column(Boolean, nullable=False, default=False)
@@ -56,8 +40,8 @@ class Email(Base):
     sent_at = Column(DateTime(timezone=True), nullable=False)
     captured_at = Column(DateTime(timezone=True), nullable=False)
 
-    # Relationships
     client = relationship("Client", back_populates="emails")
+    sender_user = relationship("User", back_populates="sent_emails")
 
     @property
     def sender_email(self) -> str:
@@ -100,46 +84,3 @@ class Email(Base):
         if isinstance(self.body, str):
             return self.body
         return (self.body or {}).get("content", "")
-
-
-class EmailSummary(Base):
-    """Cached email summary for a client."""
-
-    __tablename__ = "email_summaries"
-    __table_args__ = (UniqueConstraint("client_id", name="uq_email_summary_client"),)
-
-    id = Column(Integer, primary_key=True)
-    client_id = Column(
-        Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
-    )
-    summary_encrypted = Column(Text, nullable=False)
-    embedding = Column(JSON, nullable=True)  # Store embedding as JSON list of floats
-    actors = Column(JSON, nullable=False, default=list)
-    concluded_discussions = Column(JSON, nullable=False, default=list)
-    open_action_items = Column(JSON, nullable=False, default=list)
-    email_count_analyzed = Column(Integer, nullable=False, default=0)
-    token_in = Column(Integer, nullable=False, default=0)
-    token_out = Column(Integer, nullable=False, default=0)
-    refreshed_at = Column(DateTime(timezone=True), nullable=False)
-
-    # Relationships
-    client = relationship("Client", back_populates="summary")
-
-
-class SummarizationLog(Base):
-    """Log of summarization operations."""
-
-    __tablename__ = "summarization_logs"
-    __table_args__ = (
-        Index("ix_summarization_logs_client_completed", "client_id", "completed_at"),
-    )
-
-    id = Column(Integer, primary_key=True)
-    client_id = Column(
-        Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
-    )
-    email_count = Column(Integer, nullable=False)
-    token_in = Column(Integer, nullable=False)
-    token_out = Column(Integer, nullable=False)
-    started_at = Column(DateTime(timezone=True), nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=False)
