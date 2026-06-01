@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.users import User
 from app.schemas.emails import EmailRead
 from app.api.dependencies.auth import require_role
 from app.services.emails import read_client_emails
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/emails", tags=["emails"])
 async def get_client_emails(
     client_id: int = Path(..., ge=1),
     limit: int = Query(50, ge=1, le=200),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),

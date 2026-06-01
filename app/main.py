@@ -5,7 +5,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api import health, metrics
-from app.api.v1 import auth, clients, emails, firms, mock_emails, summaries, tasks
+from app.api.v1 import (
+    auth,
+    clients,
+    conversation,
+    emails,
+    firms,
+    mock_emails,
+    summaries,
+    tasks,
+)
 from app.core.app_config import (
     create_app,
     setup_exception_handlers,
@@ -40,6 +49,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(metrics.router)
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(clients.router, prefix="/api/v1")
+app.include_router(conversation.router, prefix="/api/v1")
 app.include_router(emails.router, prefix="/api/v1")
 app.include_router(firms.router, prefix="/api/v1")
 app.include_router(mock_emails.router, prefix="/api/v1")

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import EntityNotFoundError
 from app.common.schemas import Role
-from app.models.auth import Accountant
+from app.models.users import User
 from app.models.clients import Client
 from app.repositories import tasks as task_repo
 from app.schemas.tasks import TaskCreateRequest, TaskCreateResponse, TaskStatusResponse
@@ -34,7 +34,7 @@ def _public_task_error(error: str | None) -> str | None:
 
 async def authorize_task_payload(
     session: AsyncSession,
-    current_user: Accountant,
+    current_user: User,
     payload: dict[str, Any],
     *,
     require_client_id: bool = False,
@@ -60,7 +60,7 @@ async def authorize_task_payload(
 async def enqueue_task_service(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     request: TaskCreateRequest,
 ) -> TaskCreateResponse:
     """Validate, authorize, and enqueue a background task."""
@@ -79,7 +79,7 @@ async def enqueue_task_service(
 async def get_task_status_service(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     task_id: UUID,
 ) -> TaskStatusResponse | None:
     """Return task status after checking payload-scoped access."""

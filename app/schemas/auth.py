@@ -41,6 +41,6 @@ class UserRead(BaseModel):
     id: int
     email: EmailStr
     role: Role
-    firm_id: int
+    firm_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)

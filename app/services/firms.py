@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import AccessDeniedError
 from app.common.schemas import Role
-from app.models.auth import Accountant
+from app.models.users import User
 from app.models.firms import Firm
 from app.repositories.firms import (
     create_firm,
@@ -17,12 +17,12 @@ from app.repositories.firms import (
 )
 
 
-def _role(user: Accountant) -> Role:
+def _role(user: User) -> Role:
     """Return the API role enum for an accountant."""
     return Role(user.role.value)
 
 
-def _authorize_firm_access(user: Accountant, firm_id: int) -> None:
+def _authorize_firm_access(user: User, firm_id: int) -> None:
     """Allow superusers to access any firm and other users only their own firm."""
     if _role(user) == Role.superuser:
         return
@@ -36,7 +36,7 @@ async def get_firm_service(session: AsyncSession, firm_id: int) -> Firm:
 
 
 async def list_firms_service(
-    session: AsyncSession, current_user: Accountant
+    session: AsyncSession, current_user: User
 ) -> list[Firm]:
     """List firms visible to the current user."""
     if _role(current_user) == Role.superuser:
@@ -48,7 +48,7 @@ async def get_authorized_firm_service(
     session: AsyncSession,
     *,
     firm_id: int,
-    current_user: Accountant,
+    current_user: User,
 ) -> Firm:
     """Get a firm after enforcing firm-scoped access."""
     firm = await get_firm_by_id(session, firm_id)
@@ -75,7 +75,7 @@ async def update_firm_service(
     *,
     firm_id: int,
     name: str,
-    current_user: Accountant,
+    current_user: User,
 ) -> Firm:
     """Update a firm if the user can manage it."""
     firm = await get_firm_by_id(session, firm_id)

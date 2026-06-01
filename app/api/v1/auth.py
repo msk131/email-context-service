@@ -7,12 +7,12 @@ from app.api.dependencies.auth import get_optional_current_user
 from app.common.exceptions import UnauthorizedError
 from app.common.rate_limit import AUTH_LOGIN_LIMIT, AUTH_REGISTRATION_LIMIT, limiter
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.users import User
 from app.schemas.auth import AuthRequest, RegisterRequest, Token, UserRead
 from app.services.auth import (
-    authenticate_accountant,
+    authenticate_user,
     create_access_token,
-    register_accountant,
+    register_user,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -28,11 +28,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register(
     request: Request,
     payload: RegisterRequest,
-    current_user: Accountant | None = Depends(get_optional_current_user),
+    current_user: User | None = Depends(get_optional_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> UserRead:
     """Register a new user account."""
-    return await register_accountant(
+    return await register_user(
         session,
         email=payload.email,
         password=payload.password,
@@ -55,7 +55,7 @@ async def login(
     session: AsyncSession = Depends(get_session),
 ) -> Token:
     """Authenticate with email and password, then return a JWT token."""
-    user = await authenticate_accountant(session, payload.email, payload.password)
+    user = await authenticate_user(session, payload.email, payload.password)
     if not user:
         raise UnauthorizedError("Invalid email or password")
 

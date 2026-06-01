@@ -31,7 +31,11 @@ TAGS_METADATA = [
     {"name": "firms", "description": "Firm metadata and organization information."},
     {
         "name": "summaries",
-        "description": "Summary generation, email search, conversational Q&A, and coverage reporting.",
+        "description": "Summary generation, email search, and coverage reporting.",
+    },
+    {
+        "name": "conversation",
+        "description": "Conversational Q&A grounded in accessible email context.",
     },
     {
         "name": "tasks",

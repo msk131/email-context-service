@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
-from app.models.auth import Accountant
+from app.models.users import User
 from app.models.clients import Client
 from app.models.summaries import Email
 from app.repositories.summaries import list_accessible_email_rows, load_client
@@ -101,7 +101,7 @@ def _to_search_match(
 async def search_email_context(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     query: str,
     client_id: int | None = None,
     start_date: datetime | None = None,

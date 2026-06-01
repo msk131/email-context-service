@@ -33,8 +33,8 @@ class Email(Base):
     client_id = Column(
         Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
     )
-    sender_accountant_id = Column(
-        Integer, ForeignKey("accountants.id", ondelete="SET NULL"), nullable=True
+    sender_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
     # Sender: {address, name}
@@ -58,6 +58,7 @@ class Email(Base):
 
     # Relationships
     client = relationship("Client", back_populates="emails")
+    sender_user = relationship("User", back_populates="sent_emails")
 
     @property
     def sender_email(self) -> str:

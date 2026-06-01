@@ -7,10 +7,9 @@ import app.services.summary_refresh as summary_refresh
 import app.services.summaries as summaries
 from app.common.schemas import Role
 from app.schemas.summaries import (
-    ConversationRequest,
-    ConversationResponse,
     EmailSearchMatch,
 )
+from app.schemas.conversation import ConversationRequest, ConversationResponse
 
 
 class DummySummary:

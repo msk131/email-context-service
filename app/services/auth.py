@@ -10,9 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.setting import settings
-from app.models.auth import Accountant
+from app.models.accountants import Accountant
+from app.models.users import FirmMembership, User
 from app.models.firms import Firm
-from app.repositories.auth import count_accountants, get_accountant_by_email
+from app.repositories.users import count_users, get_user_by_email, get_user_by_id
 from app.common.models import RoleEnum
 from app.common.schemas import Role
 
@@ -55,11 +56,11 @@ async def verify_password_async(password: str, password_hash: str) -> bool:
     return await asyncio.to_thread(verify_password, password, password_hash)
 
 
-async def authenticate_accountant(
+async def authenticate_user(
     session: AsyncSession, email: str, password: str
-) -> Accountant | None:
-    """Authenticate accountant with email and password. Returns None if invalid."""
-    user = await get_accountant_by_email(session, email)
+) -> User | None:
+    """Authenticate a user with email and password. Returns None if invalid."""
+    user = await get_user_by_email(session, email)
     if not user:
         return None
     if not await verify_password_async(password, user.password_hash):
@@ -67,7 +68,7 @@ async def authenticate_accountant(
     return user
 
 
-async def register_accountant(
+async def register_user(
     session: AsyncSession,
     *,
     email: str,
@@ -75,17 +76,17 @@ async def register_accountant(
     role: Role,
     firm_id: int | None = None,
     firm_name: str | None = None,
-    current_user: Accountant | None = None,
-) -> Accountant:
+    current_user: User | None = None,
+) -> User:
     """Register a user with bootstrap and admin-only rules."""
-    existing = await get_accountant_by_email(session, email)
+    existing = await get_user_by_email(session, email)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",
         )
 
-    user_count = await count_accountants(session)
+    user_count = await count_users(session)
     is_bootstrap = user_count == 0
     if is_bootstrap:
         if role != Role.superuser:
@@ -93,9 +94,7 @@ async def register_accountant(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="The first registered user must be a superuser",
             )
-        firm = await get_or_create_firm(
-            session, firm_id=firm_id, firm_name=firm_name or "Default Firm"
-        )
+        firm = None
     else:
         if current_user is None:
             raise HTTPException(
@@ -110,27 +109,53 @@ async def register_accountant(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="Firm admins cannot create superusers",
                     )
+                if current_user.firm_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Firm-scoped user registration requires a firm",
+                    )
                 firm = await get_or_create_firm(session, firm_id=current_user.firm_id)
             elif current_role == Role.superuser:
-                firm = await get_or_create_firm(
-                    session, firm_id=firm_id, firm_name=firm_name
-                )
+                if role == Role.superuser and firm_id is None and not firm_name:
+                    firm = None
+                else:
+                    firm = await get_or_create_firm(
+                        session, firm_id=firm_id, firm_name=firm_name
+                    )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Only firm admins and superusers can register users",
                 )
 
-    user = Accountant(
-        firm_id=firm.id,
+    user = User(
         email=email,
         password_hash=await hash_password_async(password),
-        role=RoleEnum(role.value),
+        platform_role=RoleEnum.superuser if role == Role.superuser else None,
     )
+    if role != Role.superuser:
+        if firm is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="firm_id or firm_name is required for firm-scoped users",
+            )
+        membership = FirmMembership(firm_id=firm.id, role=RoleEnum(role.value))
+        user.firm_memberships.append(membership)
+        if role == Role.accountant:
+            user.accountant_profiles.append(
+                Accountant(
+                    firm_id=firm.id,
+                    membership=membership,
+                    display_name=email.split("@", maxsplit=1)[0],
+                )
+            )
     session.add(user)
     await session.commit()
     await session.refresh(user)
-    return user
+    if not hasattr(session, "execute"):
+        return user
+    loaded_user = await get_user_by_id(session, user.id)
+    return loaded_user or user
 
 
 async def get_or_create_firm(

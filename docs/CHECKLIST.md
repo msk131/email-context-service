@@ -5,7 +5,7 @@ to the current repository implementation.
 
 ## P0 — Must Have
 - ✅ Firm entity model (`app/models/firms.py`)
-- ✅ Accountant entity model (`app/models/auth.py`)
+- ✅ User entity model (`app/models/users.py`)
 - ✅ Client entity model (`app/models/clients.py`)
 - ✅ Email entity model (`app/models/summaries.py`)
 - ✅ EmailSummary entity model (`app/models/summaries.py`)

@@ -3,7 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.time import utc_now
-from app.models.auth import Accountant
+from app.models.users import User
 from app.repositories.summaries import (
     count_firm_clients,
     count_firm_summaries,
@@ -19,7 +19,7 @@ from app.schemas.summaries import (
 async def get_firm_summary_report(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
 ) -> ReportFirmClientCount:
     """Return summary coverage for the current user's firm."""
     count_with_summaries = await count_firm_summaries(session, current_user.firm_id)

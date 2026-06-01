@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.common.schemas import Role
 from app.db.database import get_session
-from app.models.auth import Accountant
+from app.models.users import User
 from app.schemas.tasks import TaskCreateRequest, TaskCreateResponse, TaskStatusResponse
 from app.api.dependencies.auth import require_role
 from app.services.tasks import enqueue_task_service, get_task_status_service
@@ -31,7 +31,7 @@ router = APIRouter(tags=["tasks"])
 async def enqueue_task(
     request: Request,
     payload: TaskCreateRequest,
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),
@@ -70,7 +70,7 @@ async def enqueue_task(
 async def task_status(
     request: Request,
     task_id: UUID = Path(...),
-    current_user: Accountant = Depends(
+    current_user: User = Depends(
         require_role(Role.accountant, Role.firm_admin, Role.superuser)
     ),
     session: AsyncSession = Depends(get_session),

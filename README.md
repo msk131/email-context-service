@@ -19,7 +19,7 @@ the firm, and a frustrating client experience.
 
 This project builds a unified email context layer for CPA firms. It captures
 mock email discussions between firm accountants and clients, groups those
-messages by client, and generates structured summaries so accountants can
+messages by client, and generates structured summaries so users can
 quickly see:
 
 - who has been involved in the conversation
@@ -38,7 +38,9 @@ The persistence layer is designed around these entities:
 | Entity | Description |
 | --- | --- |
 | `Firm` | The CPA organization using the system. |
-| `Accountant` | A user within a firm, including accountant, firm admin, and superuser roles. |
+| `User` | Login identity with email/password and optional platform superuser role. |
+| `FirmMembership` | Connects a user to a firm and stores the firm role, such as firm admin or accountant. |
+| `Accountant` | Accountant business profile tied to a user and firm membership. |
 | `Client` | The external client being serviced by a CPA firm. |
 | `Email` | An individual email with sender, recipients, timestamp, subject, body, direction, and client ownership. |
 | `EmailSummary` | Processed intelligence derived from a client's email thread. |
@@ -49,7 +51,7 @@ client.
 
 ## What The API Supports
 
-- Firm, accountant, client, email, summary, and summarization log persistence
+- Firm, user, firm membership, accountant profile, client, email, summary, and summarization log persistence
 - JWT authentication and role-based access control
 - Mock email creation and seeded demo data
 - Client-level email summary generation
@@ -120,8 +122,7 @@ First user example:
 {
   "email": "admin@example.org",
   "password": "Password123!",
-  "role": "superuser",
-  "firm_name": "Ascend Demo CPA"
+  "role": "superuser"
 }
 ```
 
@@ -143,7 +144,7 @@ Response:
   "id": 1,
   "email": "admin@example.org",
   "role": "superuser",
-  "firm_id": 1
+  "firm_id": null
 }
 ```
 
@@ -415,7 +416,7 @@ GET /api/v1/summaries/search?query=extension&client_id=1&start_date=2026-01-01T0
 Ask a question over accessible context:
 
 ```http
-POST /api/v1/summaries/conversation
+POST /api/v1/conversation
 ```
 
 ```json

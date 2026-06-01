@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
-from app.models.auth import Accountant
+from app.models.users import User
 from app.repositories import tasks as task_repo
 from app.repositories.summaries import load_client
 from app.schemas.summaries import SummaryRefreshTaskResponse
@@ -18,7 +18,7 @@ from app.utils import normalize_date_range
 async def enqueue_summary_refresh_task(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     client_id: int,
     force: bool = False,
     start_date: Optional[datetime] = None,

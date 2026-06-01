@@ -16,7 +16,9 @@ class Firm(Base):
     name = Column(String(255), unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    # Relationships
+    memberships = relationship(
+        "FirmMembership", back_populates="firm", cascade="all, delete-orphan"
+    )
     accountants = relationship(
         "Accountant", back_populates="firm", cascade="all, delete-orphan"
     )

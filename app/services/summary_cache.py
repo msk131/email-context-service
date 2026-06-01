@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache import get_summary_cache, set_summary_cache
 from app.common.schemas import Role
 from app.core.logging_config import get_logger
-from app.models.auth import Accountant
+from app.models.users import User
 from app.repositories.summaries import get_summary_record, load_client
 from app.schemas.summaries import SummaryResponse
 from app.services.clients import authorize_client_for_user
@@ -39,7 +39,7 @@ async def read_cached_summary(session: AsyncSession, client_id: int) -> SummaryR
 async def read_authorized_summary(
     session: AsyncSession,
     *,
-    current_user: Accountant,
+    current_user: User,
     client_id: int,
 ) -> SummaryResponse:
     """Read a cached summary after enforcing client access."""
