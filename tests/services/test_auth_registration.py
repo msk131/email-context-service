@@ -23,31 +23,36 @@ class DummySession:
 
 
 @pytest.mark.asyncio
-async def test_register_additional_user_requires_auth(monkeypatch):
+async def test_register_additional_user_without_auth(monkeypatch):
     async def fake_get_user_by_email(session, email):
         return None
 
     async def fake_count_users(session):
         return 1
 
+    async def fake_get_or_create_firm(session, firm_id=None, firm_name=None):
+        return Firm(id=firm_id or 7, name=firm_name or "Open Firm")
+
     monkeypatch.setattr(
         "app.services.auth.get_user_by_email", fake_get_user_by_email
     )
     monkeypatch.setattr("app.services.auth.count_users", fake_count_users)
+    monkeypatch.setattr("app.services.auth.get_or_create_firm", fake_get_or_create_firm)
 
     session = DummySession()
-    with pytest.raises(HTTPException) as exc_info:
-        await register_user(
-            session,
-            email="new.user@example.org",
-            password="Password123!",
-            role=Role.accountant,
-            firm_name="Open Firm",
-            current_user=None,
-        )
+    user = await register_user(
+        session,
+        email="new.user@example.org",
+        password="Password123!",
+        role=Role.accountant,
+        firm_name="Open Firm",
+        current_user=None,
+    )
 
-    assert exc_info.value.status_code == 401
-    assert session.added is None
+    assert user.email == "new.user@example.org"
+    assert user.role == RoleEnum.accountant
+    assert user.firm_id == 7
+    assert session.added is user
 
 
 @pytest.mark.asyncio

@@ -98,10 +98,12 @@ async def register_user(
         firm = None
     else:
         if current_user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication is required to register additional users",
-            )
+            if role == Role.superuser and firm_id is None and not firm_name:
+                firm = None
+            else:
+                firm = await get_or_create_firm(
+                    session, firm_id=firm_id, firm_name=firm_name
+                )
         else:
             current_role = Role(current_user.role.value)
             if current_role == Role.firm_admin:

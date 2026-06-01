@@ -3,11 +3,9 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.auth import get_optional_current_user
 from app.common.exceptions import UnauthorizedError
 from app.common.rate_limit import AUTH_LOGIN_LIMIT, AUTH_REGISTRATION_LIMIT, limiter
 from app.db.database import get_session
-from app.models.user import User
 from app.schemas.auth import AuthRequest, RegisterRequest, Token, UserRead
 from app.services.auth import (
     authenticate_user,
@@ -28,7 +26,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register(
     request: Request,
     payload: RegisterRequest,
-    current_user: User | None = Depends(get_optional_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> UserRead:
     """Register a new user account."""
@@ -39,7 +36,6 @@ async def register(
         role=payload.role,
         firm_id=payload.firm_id,
         firm_name=payload.firm_name,
-        current_user=current_user,
     )
 
 

@@ -15,7 +15,6 @@ from app.models.user import User
 from app.repositories.users import get_user_by_id
 
 security = HTTPBearer()
-optional_security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -42,18 +41,6 @@ async def get_current_user(
             detail="User not found",
         )
     return user
-
-
-async def get_optional_current_user(
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None, Depends(optional_security)
-    ],
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> User | None:
-    """Return the current user when a valid token is supplied, otherwise None."""
-    if credentials is None:
-        return None
-    return await get_current_user(credentials, session)
 
 
 def require_role(*allowed_roles: Role):
