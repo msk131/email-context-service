@@ -1,7 +1,8 @@
+import hashlib
 import json
 import time
-from collections.abc import Mapping
 from collections import OrderedDict
+from collections.abc import Mapping
 from typing import Any
 
 from app.core import settings
@@ -23,13 +24,19 @@ except ModuleNotFoundError:  # pragma: no cover - production dependency
 
 JsonObject = dict[str, Any]
 
-# Local fallback keeps development and unit tests usable without a Redis daemon.
 _cache_store: OrderedDict[str, tuple[JsonObject, float]] = OrderedDict()
 _redis_client: Any | None = None
 _redis_disabled = False
 
 
-def _cache_key(client_id: int) -> str:
+def make_cache_key(namespace: str, parts: Mapping[str, Any]) -> str:
+    """Build a stable cache key without storing raw query text in the key."""
+    normalized = json.dumps(parts, sort_keys=True, separators=(",", ":"), default=str)
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"{namespace}:{digest}"
+
+
+def _summary_key(client_id: int) -> str:
     return f"summary:{client_id}"
 
 
@@ -73,13 +80,13 @@ async def _redis_get(key: str) -> JsonObject | None:
     return _loads(raw) if raw else None
 
 
-async def _redis_set(key: str, payload: Mapping[str, Any]) -> bool:
+async def _redis_set(key: str, payload: Mapping[str, Any], ttl_seconds: int) -> bool:
     global _redis_disabled
     client = _redis()
     if client is None:
         return False
     try:
-        await client.setex(key, settings.summary_cache_ttl_seconds, _dumps(payload))
+        await client.setex(key, ttl_seconds, _dumps(payload))
         return True
     except RedisError:
         _redis_disabled = True
@@ -99,31 +106,27 @@ async def _redis_delete(key: str) -> bool:
         return False
 
 
-async def get_summary_cache(client_id: int) -> JsonObject | None:
-    """Retrieve cached summary with TTL validation."""
-    key = _cache_key(client_id)
+async def get_json_cache(key: str, *, ttl_seconds: int) -> JsonObject | None:
+    """Retrieve a JSON payload from Redis or the local fallback cache."""
     redis_payload = await _redis_get(key)
     if redis_payload is not None:
         return redis_payload
 
     if key not in _cache_store:
         return None
-
     payload, timestamp = _cache_store[key]
-    elapsed = time.time() - timestamp
-
-    if elapsed > settings.summary_cache_ttl_seconds:
+    if time.time() - timestamp > ttl_seconds:
         del _cache_store[key]
         return None
-
     _cache_store.move_to_end(key)
     return payload
 
 
-async def set_summary_cache(client_id: int, payload: Mapping[str, Any]) -> None:
-    """Store summary in LRU cache with TTL."""
-    key = _cache_key(client_id)
-    if await _redis_set(key, payload):
+async def set_json_cache(
+    key: str, payload: Mapping[str, Any], *, ttl_seconds: int
+) -> None:
+    """Store a JSON payload in Redis or the local fallback cache."""
+    if await _redis_set(key, payload, ttl_seconds):
         return
 
     _cache_store[key] = (dict(payload), time.time())
@@ -132,17 +135,34 @@ async def set_summary_cache(client_id: int, payload: Mapping[str, Any]) -> None:
         _cache_store.popitem(last=False)
 
 
+async def get_summary_cache(client_id: int) -> JsonObject | None:
+    """Retrieve cached summary with TTL validation."""
+    return await get_json_cache(
+        _summary_key(client_id), ttl_seconds=settings.summary_cache_ttl_seconds
+    )
+
+
+async def set_summary_cache(client_id: int, payload: Mapping[str, Any]) -> None:
+    """Store summary in cache with TTL."""
+    await set_json_cache(
+        _summary_key(client_id),
+        payload,
+        ttl_seconds=settings.summary_cache_ttl_seconds,
+    )
+
+
 async def invalidate_summary_cache(client_id: int) -> None:
     """Remove cached summary immediately."""
-    key = _cache_key(client_id)
+    key = _summary_key(client_id)
     await _redis_delete(key)
     if key in _cache_store:
         del _cache_store[key]
 
 
 def get_cache_stats() -> JsonObject:
-    """Return cache statistics for monitoring."""
+    """Return local fallback cache statistics for monitoring."""
     return {
         "cached_summaries": len(_cache_store),
+        "cached_items": len(_cache_store),
         "cache_size_bytes": sum(len(str(v)) for v in _cache_store.values()),
     }

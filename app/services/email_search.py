@@ -6,10 +6,13 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache import get_json_cache, make_cache_key, set_json_cache
 from app.common.schemas import Role
+from app.core.setting import settings
 from app.models.user import User
 from app.models.client import Client
 from app.models.email import Email
+from app.vectorizer import RetrievalDocument, retrieve_email_context
 from app.repositories.clients import get_client_by_id as load_client
 from app.repositories.emails import list_accessible_email_rows
 from app.schemas.summaries import EmailSearchMatch, EmailSearchResponse
@@ -99,6 +102,48 @@ def _to_search_match(
     )
 
 
+def _to_search_match_from_document(document: RetrievalDocument) -> EmailSearchMatch:
+    return EmailSearchMatch(
+        id=document.id,
+        client_id=document.client_id,
+        client_name=document.client_name,
+        sender_email=document.sender_email,
+        recipients=document.recipients,
+        subject=document.subject,
+        snippet=_snippet(document.content, document.subject or document.sender_email),
+        sent_at=document.sent_at,
+        relevance_score=max(1, int(document.relevance_score * 1000)),
+    )
+
+
+def _search_cache_key(
+    *,
+    current_user: User,
+    query: str,
+    client_id: int | None,
+    start_date: datetime | None,
+    end_date: datetime | None,
+    limit: int,
+) -> str:
+    return make_cache_key(
+        "email_search",
+        {
+            "user_id": getattr(current_user, "id", None),
+            "role": current_user.role.value,
+            "firm_id": current_user.firm_id,
+            "query": query,
+            "client_id": client_id,
+            "start_date": start_date,
+            "end_date": end_date,
+            "limit": limit,
+        },
+    )
+
+
+def _response_from_cached(payload: dict) -> EmailSearchResponse:
+    return EmailSearchResponse.model_validate(payload)
+
+
 async def search_email_context(
     session: AsyncSession,
     *,
@@ -134,11 +179,56 @@ async def search_email_context(
             Role(current_user.role.value),
         )
 
+    cache_key = _search_cache_key(
+        current_user=current_user,
+        query=normalized_query,
+        client_id=client_id,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit,
+    )
+    if settings.vectorizer_cache_enabled:
+        cached = await get_json_cache(
+            cache_key, ttl_seconds=settings.search_cache_ttl_seconds
+        )
+        if cached is not None:
+            return _response_from_cached(cached)
+
+    role = Role(current_user.role.value)
+    retrieved_documents = await retrieve_email_context(
+        session,
+        query=normalized_query,
+        role=role,
+        firm_id=current_user.firm_id,
+        client_id=client_id,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit,
+    )
+    retrieved_matches = [
+        _to_search_match_from_document(document)
+        for document in retrieved_documents
+        if document.relevance_score >= settings.vectorizer_min_relevance_score
+    ][:limit]
+    if retrieved_matches:
+        response = EmailSearchResponse(
+            query=normalized_query,
+            total=len(retrieved_matches),
+            results=retrieved_matches,
+        )
+        if settings.vectorizer_cache_enabled:
+            await set_json_cache(
+                cache_key,
+                response.model_dump(mode="json"),
+                ttl_seconds=settings.search_cache_ttl_seconds,
+            )
+        return response
+
     candidate_limit = min(max(limit * 10, 100), 1000)
     search_terms = _search_terms(normalized_query)
     rows = await list_accessible_email_rows(
         session,
-        role=Role(current_user.role.value),
+        role=role,
         firm_id=current_user.firm_id,
         client_id=client_id,
         start_date=start_date,
@@ -156,8 +246,15 @@ async def search_email_context(
         key=lambda item: (item.relevance_score, item.sent_at),
         reverse=True,
     )[:limit]
-    return EmailSearchResponse(
+    response = EmailSearchResponse(
         query=normalized_query,
         total=len(matches),
         results=matches,
     )
+    if settings.vectorizer_cache_enabled:
+        await set_json_cache(
+            cache_key,
+            response.model_dump(mode="json"),
+            ttl_seconds=settings.search_cache_ttl_seconds,
+        )
+    return response

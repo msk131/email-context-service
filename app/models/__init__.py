@@ -4,6 +4,7 @@ from app.models.accountant import Accountant
 from app.models.background_task import BackgroundTask, TaskStatus
 from app.models.client import Client
 from app.models.email import Email
+from app.models.email_embedding import EmailEmbedding
 from app.models.email_summary import EmailSummary
 from app.models.firm import Firm
 from app.models.firm_membership import FirmMembership
@@ -17,6 +18,7 @@ __all__ = [
     "Client",
     "Firm",
     "Email",
+    "EmailEmbedding",
     "EmailSummary",
     "SummarizationLog",
     "BackgroundTask",

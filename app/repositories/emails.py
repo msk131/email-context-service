@@ -2,10 +2,13 @@
 
 from datetime import datetime
 
-from sqlalchemy import String, cast, func, or_, select
+import json
+
+from sqlalchemy import String, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
+from app.common.time import utc_now
 from app.models.client import Client
 from app.models.email import Email
 from app.models.email_summary import EmailSummary
@@ -136,3 +139,40 @@ async def list_accessible_email_rows(
 
     result = await session.execute(statement)
     return list(result.all())
+
+
+async def upsert_email_embedding(
+    session: AsyncSession, *, email_id: int, embedding: list[float]
+) -> None:
+    """Persist an email embedding for pgvector retrieval fallback."""
+    bind = session.get_bind()
+    if bind.dialect.name == "postgresql":
+        vector = "[" + ",".join(f"{value:.8f}" for value in embedding) + "]"
+        await session.execute(
+            text(
+                """
+                INSERT INTO email_embeddings (email_id, embedding, created_at)
+                VALUES (:email_id, CAST(:embedding AS vector), :created_at)
+                ON CONFLICT (email_id)
+                DO UPDATE SET embedding = EXCLUDED.embedding, created_at = EXCLUDED.created_at
+                """
+            ),
+            {"email_id": email_id, "embedding": vector, "created_at": utc_now()},
+        )
+        return
+
+    await session.execute(
+        text(
+            """
+            INSERT INTO email_embeddings (email_id, embedding, created_at)
+            VALUES (:email_id, :embedding, :created_at)
+            ON CONFLICT(email_id)
+            DO UPDATE SET embedding = excluded.embedding, created_at = excluded.created_at
+        """
+    ),
+        {
+            "email_id": email_id,
+            "embedding": json.dumps(embedding, separators=(",", ":")),
+            "created_at": utc_now(),
+        },
+    )

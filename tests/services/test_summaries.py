@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from pydantic import ValidationError
 
 import app.services.conversation as conversation_service
-import app.services.summary_refresh as summary_refresh
 import app.services.summaries as summaries
 from app.common.schemas import Role
 from app.schemas.summaries import (
@@ -35,8 +34,8 @@ async def test_maybe_refresh_summary_creates_summary_when_missing(monkeypatch):
         called.append(("refresh", client_id))
         return "ok"
 
-    monkeypatch.setattr(summary_refresh, "get_summary_record", fake_get_summary_record)
-    monkeypatch.setattr(summary_refresh, "refresh_client_summary", fake_refresh)
+    monkeypatch.setattr(summaries, "get_summary_record", fake_get_summary_record)
+    monkeypatch.setattr(summaries, "refresh_client_summary", fake_refresh)
 
     await summaries.maybe_refresh_summary_for_new_email(None, 123)
 
@@ -48,7 +47,7 @@ async def test_maybe_refresh_summary_refreshes_after_five_new_emails(monkeypatch
     async def fake_get_summary_record(session, client_id):
         return DummySummary(datetime(2026, 1, 1))
 
-    async def fake_count_newly_captured_emails(session, client_id, after):
+    async def fake_count_emails_captured_after(session, client_id, after):
         return 5
 
     called = []
@@ -59,13 +58,13 @@ async def test_maybe_refresh_summary_refreshes_after_five_new_emails(monkeypatch
         called.append(("refresh", client_id))
         return "ok"
 
-    monkeypatch.setattr(summary_refresh, "get_summary_record", fake_get_summary_record)
+    monkeypatch.setattr(summaries, "get_summary_record", fake_get_summary_record)
     monkeypatch.setattr(
-        summary_refresh,
-        "count_newly_captured_emails",
-        fake_count_newly_captured_emails,
+        summaries,
+        "count_emails_captured_after",
+        fake_count_emails_captured_after,
     )
-    monkeypatch.setattr(summary_refresh, "refresh_client_summary", fake_refresh)
+    monkeypatch.setattr(summaries, "refresh_client_summary", fake_refresh)
 
     await summaries.maybe_refresh_summary_for_new_email(None, 123)
 
@@ -79,7 +78,7 @@ async def test_maybe_refresh_summary_invalidates_cache_when_less_than_five_new_e
     async def fake_get_summary_record(session, client_id):
         return DummySummary(datetime(2026, 1, 1))
 
-    async def fake_count_newly_captured_emails(session, client_id, after):
+    async def fake_count_emails_captured_after(session, client_id, after):
         return 3
 
     called = []
@@ -87,13 +86,13 @@ async def test_maybe_refresh_summary_invalidates_cache_when_less_than_five_new_e
     async def fake_invalidate(client_id):
         called.append(("invalidate", client_id))
 
-    monkeypatch.setattr(summary_refresh, "get_summary_record", fake_get_summary_record)
+    monkeypatch.setattr(summaries, "get_summary_record", fake_get_summary_record)
     monkeypatch.setattr(
-        summary_refresh,
-        "count_newly_captured_emails",
-        fake_count_newly_captured_emails,
+        summaries,
+        "count_emails_captured_after",
+        fake_count_emails_captured_after,
     )
-    monkeypatch.setattr(summary_refresh, "invalidate_summary_cache", fake_invalidate)
+    monkeypatch.setattr(summaries, "invalidate_summary_cache", fake_invalidate)
 
     await summaries.maybe_refresh_summary_for_new_email(None, 123)
 

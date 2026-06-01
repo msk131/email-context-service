@@ -9,6 +9,7 @@ from app.common.models import EmailDirection
 from app.common.schemas import Role
 from app.common.time import utc_now
 from app.core.logging_config import get_logger
+from app.llm.embeddings import embed_text_async
 from app.models.user import User
 from app.models.email import Email
 from app.repositories import tasks as task_repo
@@ -18,6 +19,7 @@ from app.repositories.clients import (
     list_clients_by_email,
 )
 from app.repositories.emails import list_client_emails
+from app.repositories.emails import upsert_email_embedding
 from app.schemas.emails import (
     EmailCaptureResponse,
     EmailRead,
@@ -74,6 +76,26 @@ def _message_to_email_read(email: Email) -> EmailRead:
         ccRecipients=email.cc_recipients or [],
         bccRecipients=email.bcc_recipients or [],
         replyTo=[],
+    )
+
+
+def _embedding_text(email: Email) -> str:
+    recipients = ", ".join(email.recipients)
+    return "\n".join(
+        [
+            f"Subject: {email.subject}",
+            f"From: {email.sender_email}",
+            f"To: {recipients}",
+            email.body_text,
+        ]
+    )
+
+
+async def _upsert_email_embedding(session: AsyncSession, email: Email) -> None:
+    await upsert_email_embedding(
+        session,
+        email_id=email.id,
+        embedding=await embed_text_async(_embedding_text(email)),
     )
 
 
@@ -235,6 +257,8 @@ async def mock_send_email(
         captured_at=utc_now(),
     )
     session.add(email)
+    await session.flush()
+    await _upsert_email_embedding(session, email)
     task = await _enqueue_summary_refresh(session, client.id, email.sent_at)
     await session.commit()
     await session.refresh(email)
@@ -293,6 +317,8 @@ async def mock_receive_email(
         captured_at=utc_now(),
     )
     session.add(email)
+    await session.flush()
+    await _upsert_email_embedding(session, email)
     task = await _enqueue_summary_refresh(session, client.id, email.sent_at)
     await session.commit()
     await session.refresh(email)

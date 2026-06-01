@@ -1,73 +1,82 @@
 # Email Context Service
 
-Backend API for Ascend's "Email Context" scenario: a system that helps CPA
-firms understand all email discussions between their accountants and a client
-before anyone sends another redundant follow-up.
+FastAPI backend for CPA firms to capture client email context, generate client
+reports, search prior conversations, and answer questions without sending
+duplicate follow-ups.
 
 ## Business Problem
 
-Ascend represents a group of CPA firms. During tax preparation, multiple
-accountants inside the same firm may communicate with the same client to gather
-documents, clarify filing details, or resolve blockers.
+CPA firms often have several accountants communicating with the same client
+during tax preparation. Without a shared email context, teams repeat questions,
+miss already-provided documents, and lose track of unresolved blockers. This
+service gives firm-scoped users a single place to review prior email context,
+generate client reports, search historical messages, and ask grounded questions
+before contacting the client again.
 
-Without a shared view of those conversations, accountants can easily miss what a
-colleague already asked, what the client already answered, or what is still
-blocking the return. That creates redundant questions, poor coordination inside
-the firm, and a frustrating client experience.
+## What It Does
 
-## Solution
+- JWT auth with `superuser`, `firm_admin`, and `accountant` roles.
+- Firm-scoped client and email access control.
+- Mock Microsoft Graph-style email ingestion for local development.
+- LLM-backed client report generation with queued refresh tasks.
+- Azure AI Search vector retrieval with pgvector fallback and DB keyword fallback.
+- Redis-first caching with local fallback for tests/development.
+- Prometheus metrics, request IDs, rate limiting, and structured error envelopes.
 
-This project builds a unified email context layer for CPA firms. It captures
-mock email discussions between firm accountants and clients, groups those
-messages by client, and generates structured summaries so users can
-quickly see:
+## Architecture
 
-- who has been involved in the conversation
-- what has already been concluded
-- what action items are still open
-- the latest summarized context for a specific client
+The codebase follows a layered FastAPI architecture:
 
-In production, the email ingestion layer would connect to Microsoft Graph API
-for Outlook/Office 365. For this project, the service uses seeded mock emails
-and local utilities to simulate email ingestion.
+```text
+app/api/v1          Controllers: HTTP routes, request parsing, Depends wiring
+app/services        Business logic: auth, clients, emails, reports, summaries
+app/repositories    Data access: SQLAlchemy queries and persistence helpers
+app/models          Database schema: ORM tables and relationships
+app/schemas         API schema: Pydantic request/response contracts
+app/vectorizer      Retrieval: Azure AI Search primary, pgvector fallback
+app/cache           Caching: Redis-first JSON cache with local fallback
+app/llm             AI layer: prompts, embeddings, LLM provider adapter
+app/tasks           Worker layer: DB-backed async report refresh processing
+```
 
-## Core Data Model
+Routes stay thin and call services. Services own authorization orchestration,
+workflow decisions, LLM/vectorizer calls, cache invalidation, and transaction
+boundaries. Repositories isolate database access so route handlers never contain
+raw queries.
 
-The persistence layer is designed around these entities:
+## Schema Design
 
-| Entity | Description |
+The data model is centered on firm-scoped ownership:
+
+| Table | Purpose |
 | --- | --- |
-| `Firm` | The CPA organization using the system. |
-| `User` | Login identity with email/password and optional platform superuser role. |
-| `FirmMembership` | Connects a user to exactly one firm and stores the firm role, such as firm admin or accountant. |
-| `Accountant` | Accountant business profile tied to that user's single firm membership. |
-| `Client` | The external client being serviced by a CPA firm. |
-| `Email` | An individual email with sender, recipients, timestamp, subject, body, direction, and client ownership. |
-| `EmailSummary` | Processed intelligence derived from a client's email thread. |
-| `SummarizationLog` | Audit and usage record for summary generation. |
+| `firms` | CPA organizations. |
+| `users` | Login identities and optional platform superuser role. |
+| `firm_memberships` | Single-firm role assignment for firm admins/accountants. |
+| `accountants` | Accountant business profile tied to a user membership. |
+| `clients` | External clients owned by a firm; email is unique per firm. |
+| `emails` | Captured inbound/outbound messages linked to one client. |
+| `email_embeddings` | Per-email vector data for pgvector fallback retrieval. |
+| `email_summaries` | Latest encrypted generated report for a client. |
+| `summarization_logs` | Audit and token usage history for report generation. |
+| `background_tasks` | Durable task queue state for async report refreshes. |
 
-Scale assumption: roughly 50 firms, 10,000 clients per firm, and 100 emails per
-client.
+Important design choices:
 
-## What The API Supports
+- Firm-scoped authorization uses `firm_id` on clients and membership roles.
+- Generated report text is encrypted at rest; metadata and token counts remain queryable.
+- Email embeddings are separate from `emails` so vector indexing can evolve independently.
+- Report coverage endpoints aggregate by client/report existence instead of scanning bodies.
+- Redis caches derived API responses; database tables remain the source of truth.
 
-- Firm, user, firm membership, accountant profile, client, email, summary, and summarization log persistence
-- JWT authentication and role-based access control
-- Mock email creation and seeded demo data
-- Client-level email summary generation
-- Cached summary reads and queued summary refreshes
-- Natural-language context search and conversation endpoints
-- Standardized error responses
-- Prometheus-compatible `/metrics` endpoint
-- Background task records and worker processing for LLM-backed refreshes
+Core workflow:
 
-## Documentation
-
-The documentation is intentionally small for reviewer clarity:
-
-- [docs/CHECKLIST.md](docs/CHECKLIST.md) - requirement checklist and evaluation criteria mapping
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - architecture, data model, indexes, scaling, and tradeoffs
-- [docs/REMEDIATION_CHECKLIST.md](docs/REMEDIATION_CHECKLIST.md) - engineering cleanup checklist from code review
+1. Create firms, users, and clients.
+2. Capture sent/received mock emails for a registered client.
+3. Store email embeddings for vector fallback retrieval.
+4. Enqueue report refresh work.
+5. Worker generates an encrypted client report.
+6. Users read reports, search email context, or ask conversation questions.
 
 ## Run Locally
 
@@ -78,471 +87,142 @@ pip install -r requirements.txt -r requirements-test.txt
 uvicorn app.main:app --reload
 ```
 
-This project is tested with Python 3.12, matching the Docker images. The install
-avoids heavyweight ML wheels; local embeddings use the deterministic fallback in
-`app/llm/embeddings.py`.
-
 API docs: http://localhost:8000/docs
 
-## Frontend Integration Guide
+Run tests:
 
-Base URL:
-
-```text
-http://localhost:8000
+```bash
+python3 -m pytest
 ```
 
-Authenticated requests must include:
+Run the worker:
 
-```http
-Authorization: Bearer <access_token>
-Content-Type: application/json
+```bash
+python3 -m app.tasks.worker
 ```
 
-Roles:
+## Required Environment
 
-| Role | Typical frontend permissions |
-| --- | --- |
-| `superuser` | Manage all firms, create users for any firm, view global reports. |
-| `firm_admin` | Manage own firm users/clients, view own firm reports. |
-| `accountant` | Work with clients and emails inside own firm. |
+```bash
+DATABASE_URL=sqlite+aiosqlite:///./local.db
+JWT_SECRET_KEY=change-me
+ENCRYPTION_KEY_HEX=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+```
 
-### 1. Bootstrap Or Register Users
+Useful production settings:
 
-The first user can register without a token and must be a `superuser`. After
-that, registration requires an authenticated `firm_admin` or `superuser`.
+```bash
+APP_ENV=production
+REDIS_URL=redis://redis:6379/0
+CORS_ALLOWED_ORIGINS=https://app.example.com
+TRUSTED_HOSTS=api.example.com
+LLM_API_KEY=<provider-key>
+LLM_MODEL=gemini-2.5-flash
+
+VECTORIZER_ENABLED=true
+VECTORIZER_CACHE_ENABLED=true
+AZURE_AI_SEARCH_ENDPOINT=https://<service>.search.windows.net
+AZURE_AI_SEARCH_API_KEY=<search-key>
+AZURE_AI_SEARCH_INDEX_NAME=email-context
+PGVECTOR_ENABLED=true
+```
+
+## Main Endpoints
+
+Authentication:
 
 ```http
 POST /api/v1/auth/register
-```
-
-First user example:
-
-```json
-{
-  "email": "admin@example.org",
-  "password": "Password123!",
-  "role": "superuser"
-}
-```
-
-Admin-created user example:
-
-```json
-{
-  "email": "accountant@example.org",
-  "password": "Password123!",
-  "role": "accountant",
-  "firm_id": 1
-}
-```
-
-Response:
-
-```json
-{
-  "id": 1,
-  "email": "admin@example.org",
-  "role": "superuser",
-  "firm_id": null
-}
-```
-
-Frontend behavior:
-
-- If this is a fresh environment, show bootstrap registration.
-- After bootstrap, show user creation only to `superuser` and `firm_admin`.
-- Store no password after submit.
-
-### 2. Login
-
-```http
 POST /api/v1/auth/token
 ```
 
-Request:
-
-```json
-{
-  "email": "admin@example.org",
-  "password": "Password123!"
-}
-```
-
-Response:
-
-```json
-{
-  "access_token": "<jwt>",
-  "token_type": "bearer"
-}
-```
-
-Frontend behavior:
-
-- Save the token in your auth state.
-- Send it as `Authorization: Bearer <jwt>` on protected calls.
-- On `401`, clear auth state and send the user back to login.
-
-### 3. Firms
-
-List visible firms:
+Firms and clients:
 
 ```http
-GET /api/v1/firms
-```
-
-Create firm, superuser only:
-
-```http
-POST /api/v1/firms
-```
-
-```json
-{
-  "name": "Northside CPA"
-}
-```
-
-Update own firm as `firm_admin`, or any firm as `superuser`:
-
-```http
-PATCH /api/v1/firms/{firm_id}
-```
-
-```json
-{
-  "name": "Northside CPA Group"
-}
-```
-
-Frontend behavior:
-
-- Superusers can show a firm switcher.
-- Firm-scoped users usually see only their own firm.
-
-### 4. Clients
-
-List clients visible to current user:
-
-```http
-GET /api/v1/clients
-```
-
-Superusers may filter:
-
-```http
-GET /api/v1/clients?firm_id=1
-```
-
-Create client:
-
-```http
-POST /api/v1/clients
-```
-
-```json
-{
-  "name": "Akshar Patel",
-  "external_email": "akshar@example.org",
-  "firm_id": 1
-}
-```
-
-For firm-scoped users, `firm_id` can be omitted; the API uses the user's firm.
-
-Update client:
-
-```http
-PATCH /api/v1/clients/{client_id}
-```
-
-```json
-{
-  "name": "Akshar P.",
-  "external_email": "akshar@example.org"
-}
-```
-
-Delete client:
-
-```http
+GET    /api/v1/firms
+POST   /api/v1/firms
+PATCH  /api/v1/firms/{firm_id}
+GET    /api/v1/clients
+POST   /api/v1/clients
+PATCH  /api/v1/clients/{client_id}
 DELETE /api/v1/clients/{client_id}
 ```
 
-### 5. Mock Email Ingestion
-
-Use these endpoints to simulate Microsoft Graph email capture. The client email
-must already exist in the current user's accessible firm.
-
-Outbound email from accountant to client:
+Email ingestion and timeline:
 
 ```http
 POST /api/v1/mock-emails/send
-```
-
-```json
-{
-  "message": {
-    "from": {
-      "emailAddress": {
-        "address": "accountant@example.org",
-        "name": "John Accountant"
-      }
-    },
-    "toRecipients": [
-      {
-        "emailAddress": {
-          "address": "akshar@example.org",
-          "name": "Akshar Patel"
-        }
-      }
-    ],
-    "sentDateTime": "2026-05-29T08:12:00Z",
-    "body": {
-      "contentType": "Text",
-      "content": "Please send the missing 1099-INT."
-    }
-  }
-}
-```
-
-Inbound email from client:
-
-```http
 POST /api/v1/mock-emails/receive
+GET  /api/v1/emails/clients/{client_id}?limit=50
 ```
 
-```json
-{
-  "from": {
-    "emailAddress": {
-      "address": "akshar@example.org",
-      "name": "Akshar Patel"
-    }
-  },
-  "toRecipients": [
-    {
-      "emailAddress": {
-        "address": "accountant@example.org",
-        "name": "John Accountant"
-      }
-    }
-  ],
-  "receivedDateTime": "2026-05-29T09:00:00Z",
-  "body": {
-    "contentType": "Text",
-    "content": "I uploaded the missing form."
-  }
-}
-```
-
-Response includes a background summary task:
-
-```json
-{
-  "message": {},
-  "summary_task_id": 42,
-  "summary_task_status": "pending"
-}
-```
-
-### 6. Emails
-
-List recent stored emails for a client:
-
-```http
-GET /api/v1/emails/clients/{client_id}?limit=50
-```
-
-Use this for client timeline views.
-
-### 7. Summary Refresh And Polling
-
-Start or force summary refresh:
+Client reports:
 
 ```http
 POST /api/v1/summaries/{client_id}/refresh?force=true
+GET  /api/v1/summaries/{client_id}
+GET  /api/v1/tasks/{task_id}
 ```
 
-Optional date filters:
+Search, conversation, and reporting:
 
 ```http
-POST /api/v1/summaries/{client_id}/refresh?start_date=2026-01-01T00:00:00Z&end_date=2026-01-31T23:59:59Z
-```
-
-Response:
-
-```json
-{
-  "task_id": 42,
-  "status": "pending"
-}
-```
-
-Poll task status:
-
-```http
-GET /api/v1/tasks/{task_id}
-```
-
-Successful task response includes `result`. Once the task succeeds, fetch the
-summary:
-
-```http
-GET /api/v1/summaries/{client_id}
-```
-
-Frontend behavior:
-
-- Show a loading state after refresh.
-- Poll every 2-5 seconds until `succeeded` or `failed`.
-- Stop polling on terminal states.
-
-### 8. Search And Conversation
-
-Search accessible email context:
-
-```http
-GET /api/v1/summaries/search?query=missing%201099&limit=25
-```
-
-Optional filters:
-
-```http
-GET /api/v1/summaries/search?query=extension&client_id=1&start_date=2026-01-01T00:00:00Z&end_date=2026-05-31T23:59:59Z
-```
-
-Ask a question over accessible context:
-
-```http
+GET  /api/v1/summaries/search?query=missing%201099&limit=25
 POST /api/v1/conversation
+GET  /api/v1/summaries/reports/firm-client-reports
+GET  /api/v1/summaries/reports/global-client-reports
 ```
 
-```json
-{
-  "question": "What is still blocking Akshar's tax return?"
-}
-```
-
-Use search for result lists and conversation for an answer plus source emails.
-
-### 9. Reports
-
-Firm admin or superuser summary coverage:
+Health and metrics:
 
 ```http
-GET /api/v1/summaries/reports/firm-summaries
+GET /api/health
+GET /api/healthz
+GET /metrics
 ```
 
-Superuser global summary coverage:
+## Roles
 
-```http
-GET /api/v1/summaries/reports/global-summaries
-```
+| Role | Access |
+| --- | --- |
+| `superuser` | Platform-wide firms, users, clients, reports. |
+| `firm_admin` | Own firm users, clients, emails, and firm reports. |
+| `accountant` | Own firm clients, emails, reports, search, and conversation. |
 
-### 10. Error Handling
+The first registered user must be a `superuser`. After bootstrap, user creation
+requires an authenticated `superuser` or `firm_admin`.
 
-Common statuses:
+## Vectorizer Strategy
 
-| Status | Meaning | Frontend action |
-| --- | --- | --- |
-| `401` | Missing/invalid token | Clear session and show login. |
-| `403` | Role or firm access denied | Show permission error. |
-| `404` | Entity not found | Show not-found state. |
-| `409` | Duplicate firm/client/user | Show field-level conflict message. |
-| `422` | Invalid request body/query | Show validation errors. |
-| `429` | Rate limit exceeded | Show retry message and back off. |
+Search uses a layered retrieval strategy:
 
-Recommended frontend flow:
+1. Azure AI Search hybrid/semantic vector retrieval when configured.
+2. pgvector fallback through `email_embeddings`.
+3. SQL keyword fallback for local development and empty vector results.
 
-1. Bootstrap first superuser if needed.
-2. Login and store token.
-3. Load visible firms and clients.
-4. Create/select a client.
-5. Ingest mock emails or list existing emails.
-6. Trigger summary refresh.
-7. Poll task status.
-8. Read summary, search context, or ask conversation questions.
+Search responses are cached through Redis when configured. If Redis is missing
+or unavailable, the cache helper falls back to a bounded in-process cache so
+tests and local development keep working.
 
-## Run With Docker Compose
-
-Create a local `.env` with environment-specific values, then run:
+## Docker Compose
 
 ```bash
 docker compose up --build -d
 ```
 
-The API is served through Nginx at:
+API: http://localhost:8000
 
-```text
-http://localhost:8000
-```
+Prometheus: http://localhost:9090
 
-To run multiple API instances locally:
+Scale API replicas locally:
 
 ```bash
-docker compose up -d --scale api=10
-docker compose up -d --scale api=15
+docker compose up -d --scale api=3
 ```
 
-Prometheus metrics are available at:
+## More Docs
 
-```text
-http://localhost:9090
-```
-
-Docker Compose supports manual replica scaling. For production metric-based
-autoscaling, use the same image and `/metrics` endpoint with Kubernetes HPA,
-Docker Swarm, or another scheduler.
-
-## Background Tasks
-
-Long-running summary refreshes run as `summarize_client` tasks. Calling
-`POST /api/v1/summaries/{client_id}/refresh` returns a task id immediately, and
-the API stores task state in the database. You can also enqueue the task
-directly:
-
-Mock email ingestion enqueues the same task automatically with `force=false`,
-so it refreshes only when there is no summary yet or at least 5 new emails have
-arrived since the last summary.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/tasks \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "task_type": "summarize_client",
-    "payload": {
-      "client_id": 1,
-      "force": true
-    }
-  }'
-```
-
-Check task status with `GET /api/v1/tasks/{task_id}`. Run the polling worker in
-a separate process:
-
-```bash
-python -m app.tasks.worker
-```
-
-## Metrics
-
-Prometheus-compatible metrics are exposed at:
-
-```text
-http://localhost:8000/metrics
-```
-
-The endpoint is useful for local scraping and confirming API/runtime metrics
-while exercising summary refresh and task flows.
-
-## Prompt Configuration
-
-LLM prompts live in [app/llm/prompts.yml](app/llm/prompts.yml). The
-summarization service loads the `summarization` prompt through
-[app/llm/prompts.py](app/llm/prompts.py), renders runtime values such as
-`emails`, `start_date`, and `end_date`, then passes the rendered prompt to the
-configured LLM provider. Update the YAML template to tune summarization behavior
-without changing service code.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/TOOLS.md](docs/TOOLS.md)
+- [docs/CHECKLIST.md](docs/CHECKLIST.md)
+- [docs/FILE_QA_GUIDE.md](docs/FILE_QA_GUIDE.md)

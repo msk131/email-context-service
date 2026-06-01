@@ -1,7 +1,7 @@
 import pytest
 import importlib
 
-cache_module = importlib.import_module("app.cache.cache")
+cache_module = importlib.import_module("app.cache.lru")
 
 
 @pytest.mark.asyncio

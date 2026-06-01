@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.api.v1 import summaries as summaries_api
-from app.services import summary_tasks
+from app.services import summaries as summaries_service
 
 
 class FakeSession:
@@ -44,8 +44,8 @@ async def test_refresh_summary_enqueues_task_for_external_worker(monkeypatch):
         assert client_id == 42
         return SimpleNamespace(firm_id=7)
 
-    monkeypatch.setattr(summary_tasks, "load_client", fake_load_client)
-    monkeypatch.setattr(summary_tasks.task_repo, "create_task", fake_create_task)
+    monkeypatch.setattr(summaries_service, "get_client_by_id", fake_load_client)
+    monkeypatch.setattr(summaries_service.task_repo, "create_task", fake_create_task)
 
     response = await summaries_api.refresh_summary.__wrapped__(
         SimpleNamespace(state=SimpleNamespace(request_id="req-refresh")),

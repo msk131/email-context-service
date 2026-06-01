@@ -45,6 +45,9 @@ class Settings(BaseSettings):
         512, validation_alias="SUMMARY_CACHE_MAX_ITEMS"
     )
     redis_url: str = Field("", validation_alias="REDIS_URL")
+    search_cache_ttl_seconds: int = Field(
+        300, ge=1, validation_alias="SEARCH_CACHE_TTL_SECONDS"
+    )
 
     # HTTP security controls
     cors_allowed_origins: list[str] = Field(
@@ -66,12 +69,44 @@ class Settings(BaseSettings):
         "gemini-2.5-flash", validation_alias=AliasChoices("LLM_MODEL", "GEMINI_MODEL")
     )
 
+    # Vector search / retrieval
+    vectorizer_enabled: bool = Field(True, validation_alias="VECTORIZER_ENABLED")
+    vectorizer_cache_enabled: bool = Field(
+        True, validation_alias="VECTORIZER_CACHE_ENABLED"
+    )
+    vectorizer_min_relevance_score: float = Field(
+        0.0, ge=0.0, validation_alias="VECTORIZER_MIN_RELEVANCE_SCORE"
+    )
+    azure_ai_search_endpoint: str = Field(
+        "", validation_alias="AZURE_AI_SEARCH_ENDPOINT"
+    )
+    azure_ai_search_api_key: str = Field(
+        "", validation_alias="AZURE_AI_SEARCH_API_KEY"
+    )
+    azure_ai_search_index_name: str = Field(
+        "", validation_alias="AZURE_AI_SEARCH_INDEX_NAME"
+    )
+    azure_ai_search_api_version: str = Field(
+        "2024-07-01", validation_alias="AZURE_AI_SEARCH_API_VERSION"
+    )
+    azure_ai_search_semantic_configuration: str = Field(
+        "", validation_alias="AZURE_AI_SEARCH_SEMANTIC_CONFIGURATION"
+    )
+    azure_ai_search_content_vector_field: str = Field(
+        "contentVector", validation_alias="AZURE_AI_SEARCH_CONTENT_VECTOR_FIELD"
+    )
+    pgvector_enabled: bool = Field(True, validation_alias="PGVECTOR_ENABLED")
+    pgvector_embedding_dimensions: int = Field(
+        384, ge=1, validation_alias="PGVECTOR_EMBEDDING_DIMENSIONS"
+    )
+
     # Encryption
     encryption_key_hex: str = Field(..., validation_alias="ENCRYPTION_KEY_HEX")
 
-    # Updated configuration format for Pydantic V2
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     @field_validator("app_env")

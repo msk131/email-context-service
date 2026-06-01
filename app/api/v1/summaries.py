@@ -1,6 +1,6 @@
-"""Summaries API routes (HTTP layer).
+"""Client report and email-context API routes (HTTP layer).
 
-Handles email summary operations.
+Handles generated client-report operations.
 Calls: services.summaries for business logic
 Uses: models.summaries (ORM), schemas.summaries (validation)
 """
@@ -15,10 +15,12 @@ from app.models.user import User
 from app.api.dependencies.auth import require_role
 from app.services.summaries import (
     enqueue_summary_refresh_task,
-    get_firm_summary_report,
-    get_global_summary_report,
     read_authorized_summary,
     search_email_context,
+)
+from app.services.reports import (
+    get_firm_client_report_coverage,
+    get_global_client_report_coverage,
 )
 from app.schemas.summaries import (
     EmailSearchResponse,
@@ -93,10 +95,10 @@ async def search_emails(
 
 
 @router.get(
-    "/reports/firm-summaries",
+    "/reports/firm-client-reports",
     response_model=ReportFirmClientCount,
-    summary="Firm summary coverage report",
-    description="Returns the count of clients in the current firm with generated summaries.",
+    summary="Firm client-report coverage",
+    description="Returns the count of clients in the current firm with generated client reports.",
     responses={
         401: {"description": "Missing or invalid bearer token"},
         403: {"description": "Firm admin role required"},
@@ -109,18 +111,18 @@ async def firm_summary_report(
     current_user: User = Depends(require_role(Role.firm_admin, Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> ReportFirmClientCount:
-    """Get count of clients with summaries for current firm."""
-    return await get_firm_summary_report(
+    """Get count of clients with generated reports for current firm."""
+    return await get_firm_client_report_coverage(
         session,
         current_user=current_user,
     )
 
 
 @router.get(
-    "/reports/global-summaries",
+    "/reports/global-client-reports",
     response_model=ReportGlobalResponse,
-    summary="Global summary coverage report",
-    description="Returns summary coverage grouped by firm for superusers.",
+    summary="Global client-report coverage",
+    description="Returns client-report coverage grouped by firm for superusers.",
     responses={
         401: {"description": "Missing or invalid bearer token"},
         403: {"description": "Superuser role required"},
@@ -133,19 +135,19 @@ async def global_summary_report(
     current_user: User = Depends(require_role(Role.superuser)),
     session: AsyncSession = Depends(get_session),
 ) -> ReportGlobalResponse:
-    """Get summary report for all firms (superuser only)."""
-    return await get_global_summary_report(session)
+    """Get client-report coverage for all firms (superuser only)."""
+    return await get_global_client_report_coverage(session)
 
 
 @router.get(
     "/{client_id}",
     response_model=SummaryResponse,
-    summary="Fetch a client's cached summary",
-    description="Returns the most recent generated client summary from cache or database, subject to authorization.",
+    summary="Fetch a client's cached report",
+    description="Returns the most recent generated client report from cache or database, subject to authorization.",
     responses={
         401: {"description": "Missing or invalid bearer token"},
         403: {"description": "User cannot access this client"},
-        404: {"description": "Client or summary was not found"},
+        404: {"description": "Client or report was not found"},
         429: {"description": "Rate limit exceeded"},
     },
 )
@@ -158,7 +160,7 @@ async def read_summary(
     ),
     session: AsyncSession = Depends(get_session),
 ) -> SummaryResponse:
-    """Get cached summary for client."""
+    """Get cached generated report for client."""
     return await read_authorized_summary(
         session,
         current_user=current_user,
@@ -170,10 +172,10 @@ async def read_summary(
     "/{client_id}/refresh",
     response_model=SummaryRefreshTaskResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Refresh a client's email summary",
+    summary="Refresh a client's email report",
     description=(
-        "Enqueues a background refresh for a client's email summary. The LLM-backed "
-        "summary work runs asynchronously; poll /tasks/{task_id} for completion."
+        "Enqueues a background refresh for a client's email report. The LLM-backed "
+        "report work runs asynchronously; poll /tasks/{task_id} for completion."
     ),
     responses={
         401: {"description": "Missing or invalid bearer token"},
@@ -202,7 +204,7 @@ async def refresh_summary(
     ),
     session: AsyncSession = Depends(get_session),
 ) -> SummaryRefreshTaskResponse:
-    """Enqueue summary refresh for an external worker to process."""
+    """Enqueue client-report refresh for an external worker to process."""
     return await enqueue_summary_refresh_task(
         session,
         current_user=current_user,

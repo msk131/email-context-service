@@ -18,7 +18,7 @@ class SummaryQuery(BaseModel):
 
 
 class SummaryResult(BaseModel):
-    """Summary result data model."""
+    """Generated client-report result data model."""
 
     summary: str = Field(
         ...,
@@ -40,7 +40,7 @@ class SummaryResult(BaseModel):
 
 
 class SummaryResponse(BaseModel):
-    """Summary API response model."""
+    """Generated client-report API response model."""
 
     client_id: int = Field(..., examples=[101])
     client_name: str = Field(..., examples=["Akshar Patel"])
@@ -54,14 +54,14 @@ class SummaryResponse(BaseModel):
 
 
 class SummaryRefreshTaskResponse(BaseModel):
-    """Accepted background summary refresh task."""
+    """Accepted background client-report refresh task."""
 
     task_id: UUID = Field(..., examples=["4c6155a5-7f5c-4a7d-93fa-41b01dbf4952"])
     status: str = Field(..., examples=["pending"])
 
 
 class ReportFirmClientCount(BaseModel):
-    """Firm summary report (count of clients with summaries)."""
+    """Firm report coverage (count of clients with generated reports)."""
 
     client_count_with_summaries: int = Field(..., ge=0, examples=[38])
     total_clients_in_firm: int = Field(..., ge=0, examples=[45])
@@ -70,7 +70,7 @@ class ReportFirmClientCount(BaseModel):
 
 
 class ReportFirmSummaryRow(BaseModel):
-    """Row in global summary report."""
+    """Row in global client-report coverage."""
 
     firm_id: int = Field(..., examples=[7])
     firm_name: str = Field(..., examples=["Ascend CPA North"])
@@ -78,7 +78,7 @@ class ReportFirmSummaryRow(BaseModel):
 
 
 class ReportGlobalResponse(BaseModel):
-    """Global summary report (all firms)."""
+    """Global client-report coverage response."""
 
     summaries_by_firm: list[ReportFirmSummaryRow] = Field(default_factory=list)
     total_firms: int = Field(..., ge=0, examples=[12])

@@ -1,4 +1,4 @@
-"""Summary use cases: read, refresh, enqueue, and reporting."""
+"""Client report generation use cases: read, refresh, and enqueue."""
 
 from datetime import datetime
 
@@ -16,20 +16,15 @@ from app.models.email_summary import EmailSummary
 from app.models.summarization_log import SummarizationLog
 from app.models.user import User
 from app.repositories import tasks as task_repo
-from app.repositories.clients import count_clients_by_firm, get_client_by_id
+from app.repositories.clients import get_client_by_id
 from app.repositories.email_summaries import (
-    count_summaries_by_firm,
     get_summary_record,
-    list_summary_counts_by_firm,
 )
 from app.repositories.emails import (
     count_emails_captured_after,
     list_emails_for_summary,
 )
 from app.schemas.summaries import (
-    ReportFirmClientCount,
-    ReportFirmSummaryRow,
-    ReportGlobalResponse,
     SummaryRefreshTaskResponse,
     SummaryResponse,
     SummaryResult,
@@ -41,10 +36,6 @@ from app.utils import decrypt_text, encrypt_text, normalize_date_range
 
 logger = get_logger("services.summaries")
 
-# Backward-compatible service aliases used by older tests and call sites.
-load_client = get_client_by_id
-count_newly_captured_emails = count_emails_captured_after
-
 
 def summary_response_from_record(
     client: Client,
@@ -53,7 +44,7 @@ def summary_response_from_record(
     skipped: bool = False,
     reason: str | None = None,
 ) -> SummaryResponse:
-    """Build an API summary response from ORM records."""
+    """Build an API client-report response from ORM records."""
     result = None
     if not skipped:
         result = SummaryResult(
@@ -79,7 +70,7 @@ def summary_response_from_record(
 
 
 async def read_cached_summary(session: AsyncSession, client_id: int) -> SummaryResponse:
-    """Read cached summary for client."""
+    """Read cached generated report for client."""
     cached = await get_summary_cache(client_id)
     if cached:
         logger.info("Summary cache hit client_id=%s", client_id)
@@ -93,7 +84,7 @@ async def read_cached_summary(session: AsyncSession, client_id: int) -> SummaryR
             detail="No summary exists for this client",
         )
 
-    client = await load_client(session, client_id)
+    client = await get_client_by_id(session, client_id)
     response = summary_response_from_record(client, summary_record)
     await set_summary_cache(client_id, response.model_dump())
     return response
@@ -105,8 +96,8 @@ async def read_authorized_summary(
     current_user: User,
     client_id: int,
 ) -> SummaryResponse:
-    """Read a cached summary after enforcing client access."""
-    client = await load_client(session, client_id)
+    """Read a cached generated report after enforcing client access."""
+    client = await get_client_by_id(session, client_id)
     await authorize_client_for_user(current_user, client, Role(current_user.role.value))
     return await read_cached_summary(session, client_id)
 
@@ -118,7 +109,7 @@ async def refresh_client_summary(
     end_date: datetime | None = None,
     force: bool = False,
 ) -> SummaryResponse:
-    """Refresh/generate client email summary using LLM."""
+    """Refresh/generate client email report using LLM."""
     logger.info(
         "Summary refresh requested client_id=%s force=%s start_date=%s end_date=%s",
         client_id,
@@ -134,7 +125,7 @@ async def refresh_client_summary(
             detail=str(exc),
         ) from exc
 
-    client = await load_client(session, client_id)
+    client = await get_client_by_id(session, client_id)
     emails = await list_emails_for_summary(session, client_id, start_date, end_date)
     logger.info(
         "Loaded emails for summary client_id=%s email_count=%s", client_id, len(emails)
@@ -150,7 +141,7 @@ async def refresh_client_summary(
 
     summary_record = await get_summary_record(session, client_id)
     if summary_record and not force:
-        new_email_count = await count_newly_captured_emails(
+        new_email_count = await count_emails_captured_after(
             session,
             client_id,
             summary_record.refreshed_at,
@@ -241,7 +232,7 @@ async def maybe_refresh_summary_for_new_email(
         await refresh_client_summary(session, client_id)
         return
 
-    new_email_count = await count_newly_captured_emails(
+    new_email_count = await count_emails_captured_after(
         session,
         client_id,
         summary_record.refreshed_at,
@@ -272,8 +263,8 @@ async def enqueue_summary_refresh_task(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ) -> SummaryRefreshTaskResponse:
-    """Authorize and enqueue a summary refresh task."""
-    client = await load_client(session, client_id)
+    """Authorize and enqueue a client-report refresh task."""
+    client = await get_client_by_id(session, client_id)
     await authorize_client_for_user(current_user, client, Role(current_user.role.value))
     try:
         normalize_date_range(start_date, end_date)
@@ -298,52 +289,9 @@ async def enqueue_summary_refresh_task(
     return SummaryRefreshTaskResponse(task_id=task.id, status=task.status.value)
 
 
-async def get_firm_summary_report(
-    session: AsyncSession,
-    *,
-    current_user: User,
-) -> ReportFirmClientCount:
-    """Return summary coverage for the current user's firm."""
-    count_with_summaries = await count_summaries_by_firm(session, current_user.firm_id)
-    total_clients = await count_clients_by_firm(session, current_user.firm_id)
-    coverage_percentage = (
-        count_with_summaries / total_clients * 100 if total_clients > 0 else 0.0
-    )
-    return ReportFirmClientCount(
-        client_count_with_summaries=count_with_summaries,
-        total_clients_in_firm=total_clients,
-        coverage_percentage=round(coverage_percentage, 1),
-        generated_at=utc_now(),
-    )
-
-
-async def get_global_summary_report(session: AsyncSession) -> ReportGlobalResponse:
-    """Return summary coverage grouped by firm."""
-    rows = [
-        ReportFirmSummaryRow(
-            firm_id=firm_id,
-            firm_name=firm_name,
-            client_count_with_summaries=client_count,
-        )
-        for firm_id, firm_name, client_count in await list_summary_counts_by_firm(
-            session
-        )
-    ]
-    return ReportGlobalResponse(
-        summaries_by_firm=rows,
-        total_firms=len(rows),
-        total_clients_with_summaries=sum(
-            row.client_count_with_summaries for row in rows
-        ),
-        generated_at=utc_now(),
-    )
-
-
 __all__ = [
     "answer_email_context_question",
     "enqueue_summary_refresh_task",
-    "get_firm_summary_report",
-    "get_global_summary_report",
     "maybe_refresh_summary_for_new_email",
     "read_authorized_summary",
     "read_cached_summary",
