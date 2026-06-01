@@ -211,7 +211,8 @@ async def _retrieve_from_pgvector(
         where_clauses.append("e.sent_at <= :end_date")
         params["end_date"] = end_date
 
-    statement = text(f"""
+    statement = text(
+        f"""
         SELECT
             e.id,
             e.client_id,
@@ -228,7 +229,8 @@ async def _retrieve_from_pgvector(
         WHERE {" AND ".join(where_clauses)}
         ORDER BY ee.embedding <=> CAST(:query_vector AS vector)
         LIMIT :limit
-        """)
+        """
+    )
     try:
         result = await session.execute(statement, params)
     except Exception as exc:
