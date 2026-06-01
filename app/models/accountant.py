@@ -16,8 +16,12 @@ class Accountant(Base):
     )
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    firm_id = Column(Integer, ForeignKey("firms.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    firm_id = Column(
+        Integer, ForeignKey("firms.id", ondelete="CASCADE"), nullable=False
+    )
     membership_id = Column(
         Integer,
         ForeignKey("firm_memberships.id", ondelete="CASCADE"),

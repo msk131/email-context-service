@@ -30,7 +30,9 @@ class RegisterRequest(BaseModel):
     """Create a user account."""
 
     email: EmailStr = Field(
-        ..., description="New user's email address.", examples=["new.accountant@example.org"]
+        ...,
+        description="New user's email address.",
+        examples=["new.accountant@example.org"],
     )
     password: str = Field(
         ...,

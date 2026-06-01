@@ -1,6 +1,16 @@
 """Email ORM model."""
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, JSON, String
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+)
 from sqlalchemy.orm import relationship
 
 from app.common.models import Base, EmailDirection

@@ -1,5 +1,4 @@
 import pytest
-from fastapi import HTTPException
 
 from app.common.models import RoleEnum
 from app.common.schemas import Role
@@ -33,9 +32,7 @@ async def test_register_additional_user_without_auth(monkeypatch):
     async def fake_get_or_create_firm(session, firm_id=None, firm_name=None):
         return Firm(id=firm_id or 7, name=firm_name or "Open Firm")
 
-    monkeypatch.setattr(
-        "app.services.auth.get_user_by_email", fake_get_user_by_email
-    )
+    monkeypatch.setattr("app.services.auth.get_user_by_email", fake_get_user_by_email)
     monkeypatch.setattr("app.services.auth.count_users", fake_count_users)
     monkeypatch.setattr("app.services.auth.get_or_create_firm", fake_get_or_create_firm)
 
@@ -91,9 +88,7 @@ async def test_register_additional_user_with_firm_admin(monkeypatch):
     async def fake_get_or_create_firm(session, firm_id, firm_name=None):
         return Firm(id=firm_id, name="Admin Firm")
 
-    monkeypatch.setattr(
-        "app.services.auth.get_user_by_email", fake_get_user_by_email
-    )
+    monkeypatch.setattr("app.services.auth.get_user_by_email", fake_get_user_by_email)
     monkeypatch.setattr("app.services.auth.count_users", fake_count_users)
     monkeypatch.setattr("app.services.auth.get_or_create_firm", fake_get_or_create_firm)
 

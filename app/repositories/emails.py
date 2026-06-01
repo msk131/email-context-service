@@ -149,27 +149,23 @@ async def upsert_email_embedding(
     if bind.dialect.name == "postgresql":
         vector = "[" + ",".join(f"{value:.8f}" for value in embedding) + "]"
         await session.execute(
-            text(
-                """
+            text("""
                 INSERT INTO email_embeddings (email_id, embedding, created_at)
                 VALUES (:email_id, CAST(:embedding AS vector), :created_at)
                 ON CONFLICT (email_id)
                 DO UPDATE SET embedding = EXCLUDED.embedding, created_at = EXCLUDED.created_at
-                """
-            ),
+                """),
             {"email_id": email_id, "embedding": vector, "created_at": utc_now()},
         )
         return
 
     await session.execute(
-        text(
-            """
+        text("""
             INSERT INTO email_embeddings (email_id, embedding, created_at)
             VALUES (:email_id, :embedding, :created_at)
             ON CONFLICT(email_id)
             DO UPDATE SET embedding = excluded.embedding, created_at = excluded.created_at
-        """
-    ),
+        """),
         {
             "email_id": email_id,
             "embedding": json.dumps(embedding, separators=(",", ":")),

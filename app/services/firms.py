@@ -35,9 +35,7 @@ async def get_firm_service(session: AsyncSession, firm_id: int) -> Firm:
     return await get_firm_by_id(session, firm_id)
 
 
-async def list_firms_service(
-    session: AsyncSession, current_user: User
-) -> list[Firm]:
+async def list_firms_service(session: AsyncSession, current_user: User) -> list[Firm]:
     """List firms visible to the current user."""
     if _role(current_user) == Role.superuser:
         return await list_firms(session)

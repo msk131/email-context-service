@@ -59,7 +59,11 @@ class User(Base):
     def firm_id(self, value: int | None) -> None:
         if value is None:
             return
-        role = self.role if self.platform_role != RoleEnum.superuser else RoleEnum.accountant
+        role = (
+            self.role
+            if self.platform_role != RoleEnum.superuser
+            else RoleEnum.accountant
+        )
         self._set_primary_membership(value, role)
 
     def _set_primary_membership_role(self, role: RoleEnum) -> None:

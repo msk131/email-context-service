@@ -91,7 +91,9 @@ def _azure_document(raw: dict[str, Any]) -> RetrievalDocument:
         subject=str(raw.get("subject") or ""),
         content=str(raw.get("content") or raw.get("body") or ""),
         sent_at=_coerce_datetime(raw.get("sentAt") or raw.get("sent_at")),
-        relevance_score=float(raw.get("@search.rerankerScore") or raw.get("@search.score") or 0.0),
+        relevance_score=float(
+            raw.get("@search.rerankerScore") or raw.get("@search.score") or 0.0
+        ),
         provider="azure_ai_search",
     )
 
@@ -192,7 +194,10 @@ async def _retrieve_from_pgvector(
         return []
 
     where_clauses = ["1 = 1"]
-    params: dict[str, Any] = {"limit": limit, "query_vector": _vector_literal(await embed_text_async(query))}
+    params: dict[str, Any] = {
+        "limit": limit,
+        "query_vector": _vector_literal(await embed_text_async(query)),
+    }
     if role != Role.superuser and firm_id is not None:
         where_clauses.append("c.firm_id = :firm_id")
         params["firm_id"] = firm_id
@@ -206,8 +211,7 @@ async def _retrieve_from_pgvector(
         where_clauses.append("e.sent_at <= :end_date")
         params["end_date"] = end_date
 
-    statement = text(
-        f"""
+    statement = text(f"""
         SELECT
             e.id,
             e.client_id,
@@ -224,8 +228,7 @@ async def _retrieve_from_pgvector(
         WHERE {" AND ".join(where_clauses)}
         ORDER BY ee.embedding <=> CAST(:query_vector AS vector)
         LIMIT :limit
-        """
-    )
+        """)
     try:
         result = await session.execute(statement, params)
     except Exception as exc:

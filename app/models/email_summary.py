@@ -1,6 +1,14 @@
 """Email summary ORM model."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, Text, UniqueConstraint
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.common.models import Base

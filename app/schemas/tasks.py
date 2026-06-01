@@ -10,9 +10,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class SummarizeClientPayload(BaseModel):
     """Payload for a client summary task."""
 
-    client_id: int = Field(..., ge=1, description="Client id to summarize.", examples=[42])
+    client_id: int = Field(
+        ..., ge=1, description="Client id to summarize.", examples=[42]
+    )
     force: bool = Field(
-        False, description="Force regeneration even when few emails changed.", examples=[True]
+        False,
+        description="Force regeneration even when few emails changed.",
+        examples=[True],
     )
     start_date: datetime | None = Field(
         None, description="Only summarize emails sent at or after this timestamp."
@@ -56,7 +60,9 @@ class TaskStatusResponse(BaseModel):
     task_id: UUID = Field(..., description="Background task id.")
     task_type: str = Field(..., description="Background task type.")
     status: str = Field(..., description="Current task status.")
-    result: dict[str, Any] | None = Field(None, description="Task result when succeeded.")
+    result: dict[str, Any] | None = Field(
+        None, description="Task result when succeeded."
+    )
     error: str | None = Field(None, description="Client-safe error code when failed.")
     created_at: datetime = Field(..., description="Task creation timestamp.")
     updated_at: datetime = Field(..., description="Last task update timestamp.")

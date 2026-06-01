@@ -23,9 +23,7 @@ def _role(user: User) -> Role:
     return Role(user.role.value)
 
 
-async def authorize_client_for_user(
-    user: User, client: Client, role: Role
-) -> None:
+async def authorize_client_for_user(user: User, client: Client, role: Role) -> None:
     """Authorize user access to client (must be same firm or superuser).
 
     Raises AccessDeniedError if user cannot access this client.
@@ -36,9 +34,7 @@ async def authorize_client_for_user(
         raise AccessDeniedError("Access denied for this client")
 
 
-def resolve_client_firm_id(
-    current_user: User, requested_firm_id: int | None
-) -> int:
+def resolve_client_firm_id(current_user: User, requested_firm_id: int | None) -> int:
     """Resolve and authorize the target firm for client writes."""
     if _role(current_user) == Role.superuser:
         if requested_firm_id is None:

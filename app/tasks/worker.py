@@ -50,7 +50,9 @@ async def _process_task(session: AsyncSession, task: BackgroundTask) -> None:
             "Task succeeded task_id=%s client_id=%s", task.id, task_args["client_id"]
         )
     except Exception as exc:
-        await task_repo.mark_failed(session, task.id, error_code="TASK_EXECUTION_FAILED")
+        await task_repo.mark_failed(
+            session, task.id, error_code="TASK_EXECUTION_FAILED"
+        )
         await session.commit()
         logger.error("Task failed task_id=%s error=%s", task.id, exc, exc_info=True)
 

@@ -17,8 +17,12 @@ class FirmMembership(Base):
     )
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    firm_id = Column(Integer, ForeignKey("firms.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    firm_id = Column(
+        Integer, ForeignKey("firms.id", ondelete="CASCADE"), nullable=False
+    )
     role = Column(Enum(RoleEnum), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 

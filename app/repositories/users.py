@@ -22,9 +22,7 @@ async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def get_user_by_id(
-    session: AsyncSession, user_id: int
-) -> User | None:
+async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
     """Fetch a user by ID."""
     result = await session.execute(
         select(User).options(*_user_load_options()).where(User.id == user_id)

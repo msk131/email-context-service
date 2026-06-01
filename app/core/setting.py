@@ -80,9 +80,7 @@ class Settings(BaseSettings):
     azure_ai_search_endpoint: str = Field(
         "", validation_alias="AZURE_AI_SEARCH_ENDPOINT"
     )
-    azure_ai_search_api_key: str = Field(
-        "", validation_alias="AZURE_AI_SEARCH_API_KEY"
-    )
+    azure_ai_search_api_key: str = Field("", validation_alias="AZURE_AI_SEARCH_API_KEY")
     azure_ai_search_index_name: str = Field(
         "", validation_alias="AZURE_AI_SEARCH_INDEX_NAME"
     )
