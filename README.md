@@ -4,6 +4,22 @@ FastAPI backend for CPA firms to capture client email context, generate client
 reports, search prior conversations, and answer questions without sending
 duplicate follow-ups.
 
+## Portfolio Project Summary
+
+This project demonstrates my ability to design and build a production-style
+backend service with secure multi-tenant access, AI-assisted retrieval, encrypted
+report storage, observability, background processing, and clear schema ownership.
+
+It is positioned as a hands-on engineering project focused on:
+
+- FastAPI service architecture and API design
+- Role-based access control for firm-scoped data
+- SQLAlchemy schema design and repository patterns
+- AI search and retrieval with fallback strategies
+- Encrypted report generation and audit logging
+- Redis caching, Prometheus metrics, and worker-based async processing
+- Testable, maintainable backend delivery practices
+
 ## Business Problem
 
 CPA firms often have several accountants communicating with the same client
