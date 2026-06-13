@@ -7,6 +7,7 @@ plain database keyword fallback so local SQLite development remains lightweight.
 
 from dataclasses import dataclass
 from datetime import datetime
+import json
 from typing import Any
 
 import httpx
@@ -17,6 +18,7 @@ from app.common.schemas import Role
 from app.core.logging_config import get_logger
 from app.core.setting import settings
 from app.llm.embeddings import embed_text_async
+from app.utils import decrypt_text
 
 logger = get_logger("vectorizer.retrievers")
 
@@ -220,7 +222,7 @@ async def _retrieve_from_pgvector(
             e.sender_address,
             e.to_recipients,
             e.subject,
-            e.body,
+            e.body_encrypted,
             e.sent_at,
             1 - (ee.embedding <=> CAST(:query_vector AS vector)) AS relevance_score
         FROM email_embeddings ee
@@ -239,8 +241,16 @@ async def _retrieve_from_pgvector(
 
     documents = []
     for row in result.mappings():
-        body = row["body"]
-        content = body.get("content", "") if isinstance(body, dict) else str(body or "")
+        try:
+            body = json.loads(decrypt_text(row["body_encrypted"]))
+            content = body.get("content", "") if isinstance(body, dict) else ""
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                "pgvector_email_body_decrypt_failed email_id=%s error=%s",
+                row["id"],
+                exc,
+            )
+            content = ""
         documents.append(
             RetrievalDocument(
                 id=int(row["id"]),

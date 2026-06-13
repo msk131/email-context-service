@@ -4,7 +4,7 @@ from datetime import datetime
 
 import json
 
-from sqlalchemy import String, cast, func, or_, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.schemas import Role
@@ -121,13 +121,11 @@ async def list_accessible_email_rows(
         statement = statement.where(Email.sent_at <= end_date)
     if search_terms:
         predicates = []
-        searchable_body = cast(Email.body, String)
         for term in search_terms:
             pattern = f"%{term}%"
             predicates.extend(
                 [
                     Email.subject.ilike(pattern),
-                    searchable_body.ilike(pattern),
                     Email.sender_address.ilike(pattern),
                     Client.name.ilike(pattern),
                     Client.external_email.ilike(pattern),

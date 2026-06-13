@@ -1,5 +1,7 @@
 """Email ORM model."""
 
+import json
+
 from sqlalchemy import (
     Boolean,
     Column,
@@ -10,10 +12,12 @@ from sqlalchemy import (
     Integer,
     JSON,
     String,
+    Text,
 )
 from sqlalchemy.orm import relationship
 
 from app.common.models import Base, EmailDirection
+from app.utils import decrypt_text, encrypt_text
 
 
 class Email(Base):
@@ -43,7 +47,7 @@ class Email(Base):
     bcc_recipients = Column(JSON, nullable=False, default=list)
 
     subject = Column(String(512), nullable=False)
-    body = Column(JSON, nullable=False)
+    body_encrypted = Column(Text, nullable=False)
 
     is_read = Column(Boolean, nullable=False, default=False)
     direction = Column(Enum(EmailDirection), nullable=False)
@@ -89,8 +93,21 @@ class Email(Base):
         self.bcc_recipients = []
 
     @property
+    def body(self) -> dict:
+        """Return the decrypted Microsoft Graph body shape."""
+        if not self.body_encrypted:
+            return {}
+        return json.loads(decrypt_text(self.body_encrypted))
+
+    @body.setter
+    def body(self, value: dict | str | None) -> None:
+        body_value = value or {}
+        if isinstance(body_value, str):
+            body_value = {"contentType": "Text", "content": body_value}
+        serialized = json.dumps(body_value, separators=(",", ":"), sort_keys=True)
+        self.body_encrypted = encrypt_text(serialized)
+
+    @property
     def body_text(self) -> str:
-        """Return searchable/summarizable body content from the Graph body."""
-        if isinstance(self.body, str):
-            return self.body
+        """Return decrypted searchable/summarizable body content."""
         return (self.body or {}).get("content", "")

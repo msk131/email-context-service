@@ -18,14 +18,8 @@ from app.services.summaries import (
     read_authorized_summary,
     search_email_context,
 )
-from app.services.reports import (
-    get_firm_client_report_coverage,
-    get_global_client_report_coverage,
-)
 from app.schemas.summaries import (
     EmailSearchResponse,
-    ReportFirmClientCount,
-    ReportGlobalResponse,
     SummaryRefreshTaskResponse,
     SummaryResponse,
 )
@@ -92,51 +86,6 @@ async def search_emails(
         end_date=end_date,
         limit=limit,
     )
-
-
-@router.get(
-    "/reports/firm-client-reports",
-    response_model=ReportFirmClientCount,
-    summary="Firm client-report coverage",
-    description="Returns the count of clients in the current firm with generated client reports.",
-    responses={
-        401: {"description": "Missing or invalid bearer token"},
-        403: {"description": "Firm admin role required"},
-        429: {"description": "Rate limit exceeded"},
-    },
-)
-@limiter.limit("60/minute")
-async def firm_summary_report(
-    request: Request,
-    current_user: User = Depends(require_role(Role.firm_admin, Role.superuser)),
-    session: AsyncSession = Depends(get_session),
-) -> ReportFirmClientCount:
-    """Get count of clients with generated reports for current firm."""
-    return await get_firm_client_report_coverage(
-        session,
-        current_user=current_user,
-    )
-
-
-@router.get(
-    "/reports/global-client-reports",
-    response_model=ReportGlobalResponse,
-    summary="Global client-report coverage",
-    description="Returns client-report coverage grouped by firm for superusers.",
-    responses={
-        401: {"description": "Missing or invalid bearer token"},
-        403: {"description": "Superuser role required"},
-        429: {"description": "Rate limit exceeded"},
-    },
-)
-@limiter.limit("30/minute")
-async def global_summary_report(
-    request: Request,
-    current_user: User = Depends(require_role(Role.superuser)),
-    session: AsyncSession = Depends(get_session),
-) -> ReportGlobalResponse:
-    """Get client-report coverage for all firms (superuser only)."""
-    return await get_global_client_report_coverage(session)
 
 
 @router.get(

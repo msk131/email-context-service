@@ -4,12 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.time import utc_now
 from app.models.user import User
-from app.repositories.clients import count_clients_by_firm
-from app.repositories.email_summaries import (
-    count_summaries_by_firm,
-    list_summary_counts_by_firm,
+from app.repositories.reports import (
+    get_firm_client_report_counts,
+    list_global_client_report_counts,
 )
-from app.schemas.summaries import (
+from app.schemas.reports import (
     ReportFirmClientCount,
     ReportFirmSummaryRow,
     ReportGlobalResponse,
@@ -22,8 +21,10 @@ async def get_firm_client_report_coverage(
     current_user: User,
 ) -> ReportFirmClientCount:
     """Return client-report coverage for the current user's firm."""
-    count_with_reports = await count_summaries_by_firm(session, current_user.firm_id)
-    total_clients = await count_clients_by_firm(session, current_user.firm_id)
+    count_with_reports, total_clients = await get_firm_client_report_counts(
+        session,
+        current_user.firm_id,
+    )
     coverage_percentage = (
         count_with_reports / total_clients * 100 if total_clients > 0 else 0.0
     )
@@ -45,7 +46,7 @@ async def get_global_client_report_coverage(
             firm_name=firm_name,
             client_count_with_summaries=client_count,
         )
-        for firm_id, firm_name, client_count in await list_summary_counts_by_firm(
+        for firm_id, firm_name, client_count in await list_global_client_report_counts(
             session
         )
     ]

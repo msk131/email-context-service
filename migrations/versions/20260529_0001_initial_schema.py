@@ -125,7 +125,7 @@ def upgrade() -> None:
         sa.Column("cc_recipients", sa.JSON(), nullable=False),
         sa.Column("bcc_recipients", sa.JSON(), nullable=False),
         sa.Column("subject", sa.String(length=512), nullable=False),
-        sa.Column("body", sa.JSON(), nullable=False),
+        sa.Column("body_encrypted", sa.Text(), nullable=False),
         sa.Column("is_read", sa.Integer(), nullable=False),
         sa.Column(
             "direction",

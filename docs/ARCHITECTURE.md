@@ -38,7 +38,8 @@ app/
       clients.py          Client CRUD
       firms.py            Firm CRUD
       emails.py           Client email reads
-      summaries.py        Summary reads, refresh enqueueing, search, reports
+      summaries.py        Summary reads, refresh enqueueing, search
+      reports.py          Firm and global report coverage
       conversation.py     Conversational Q&A over email context
       tasks.py            Background task submission and status
   services/
@@ -46,7 +47,8 @@ app/
     clients.py            Client lookup and firm-scoped authorization
     emails.py             Mock email creation and stored email reads
     firms.py              Firm lookup
-    summaries.py          Summarization, search, conversation, reporting helpers
+    summaries.py          Summarization, search, conversation helpers
+    reports.py            Firm and global report coverage logic
   repositories/           Focused SQLAlchemy queries
   models/                 Firm, User, Client, Email, EmailSummary, SummarizationLog
   schemas/                Pydantic request and response models
@@ -74,8 +76,8 @@ Product endpoints:
 - `POST /api/v1/summaries/{client_id}/refresh`
 - `GET /api/v1/summaries/search`
 - `POST /api/v1/conversation`
-- `GET /api/v1/summaries/reports/firm-summaries`
-- `GET /api/v1/summaries/reports/global-summaries`
+- `GET /api/v1/reports/firm-client-reports`
+- `GET /api/v1/reports/global-client-reports`
 - `POST /api/v1/tasks`
 - `GET /api/v1/tasks/{task_id}`
 

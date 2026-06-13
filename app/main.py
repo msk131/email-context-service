@@ -12,6 +12,7 @@ from app.api.v1 import (
     emails,
     firms,
     mock_emails,
+    reports,
     summaries,
     tasks,
 )
@@ -53,5 +54,6 @@ app.include_router(conversation.router, prefix="/api/v1")
 app.include_router(emails.router, prefix="/api/v1")
 app.include_router(firms.router, prefix="/api/v1")
 app.include_router(mock_emails.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 app.include_router(summaries.router, prefix="/api/v1")
 app.include_router(tasks.router, prefix="/api/v1")

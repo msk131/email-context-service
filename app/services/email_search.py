@@ -233,7 +233,7 @@ async def search_email_context(
         client_id=client_id,
         start_date=start_date,
         end_date=end_date,
-        search_terms=search_terms,
+        search_terms=None,
         limit=candidate_limit,
     )
     matches = []

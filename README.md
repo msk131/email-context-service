@@ -185,8 +185,8 @@ Search, conversation, and reporting:
 ```http
 GET  /api/v1/summaries/search?query=missing%201099&limit=25
 POST /api/v1/conversation
-GET  /api/v1/summaries/reports/firm-client-reports
-GET  /api/v1/summaries/reports/global-client-reports
+GET  /api/v1/reports/firm-client-reports
+GET  /api/v1/reports/global-client-reports
 ```
 
 Health and metrics:
